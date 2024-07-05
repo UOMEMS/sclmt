@@ -4,9 +4,8 @@ Module containing the 'PolygonSequencer' class, which generates the laser machin
 
 from dataclasses import dataclass
 import numpy as np
-from config import TARGET_SEPARATION
-from points import Point, PointArray
-from visualization import animate_sequence
+from .points import Point, PointArray
+from .visualization import animate_sequence
 
 @dataclass
 class PolygonSequenceParams:
@@ -19,27 +18,27 @@ class PolygonSequenceParams:
 class PolygonSequencingError(Exception):
     pass
 
-def decompose_polygon(vertices: PointArray, target_init_separation: float) -> PolygonSequenceParams:
+def decompose_polygon(vertices: PointArray, target_init_separation: float, target_separation: float) -> PolygonSequenceParams:
     """
     Returns object containing no. passes (excluding initial pass), no. holes, and hole separation required to machine a polygon.
     """
-    if target_init_separation <= TARGET_SEPARATION:
-        raise PolygonSequencingError(f"Targeted initial hole separation must be larger than final separation ({TARGET_SEPARATION} µm)")
+    if target_init_separation <= target_separation:
+        raise PolygonSequencingError("Targeted initial hole separation must be larger than final separation")
     perimeter = vertices.sum_of_distances(wraparound = True)
     if target_init_separation >= perimeter:
-        raise PolygonSequencingError(f"Targeted initial hole separation must be smaller than polygon perimeter ({perimeter} µm)")
+        raise PolygonSequencingError(f"Targeted initial hole separation must be smaller than polygon perimeter ({perimeter})")
     init_num_holes = round(perimeter / target_init_separation)
     if init_num_holes < 2:
         raise PolygonSequencingError("Targeted initial hole separation yielded less than 2 initial holes")
-    num_passes = round(np.log2(perimeter / (init_num_holes * TARGET_SEPARATION)))
+    num_passes = round(np.log2(perimeter / (init_num_holes * target_separation)))
     num_holes = init_num_holes + ((2 ** num_passes) - 1) * init_num_holes
     init_separation = perimeter / init_num_holes
     separation = perimeter / num_holes
     return PolygonSequenceParams(num_passes, init_num_holes, num_holes, init_separation, separation)
 
-def densify_polygon(vertices: PointArray, num_points: int, separation: np.float64) -> list[Point]:
+def densify_polygon(vertices: PointArray, num_points: int, separation: float) -> list[Point]:
     """
-    Returns list of points placed equidistantly along a polygon's perimeter.
+    Returns list of Point instances placed equidistantly along a polygon's perimeter.
     """
 
     # Select first vertex as first point
@@ -145,8 +144,8 @@ class PolygonSequencer:
     """
     Generates the laser machining sequence for individual polygons.
     """
-    def __init__(self, vertices: PointArray, target_init_separation: float) -> None:
-        params = decompose_polygon(vertices, target_init_separation)
+    def __init__(self, vertices: PointArray, target_init_separation: float, target_separation: float) -> None:
+        params = decompose_polygon(vertices, target_init_separation, target_separation)
         holes = densify_polygon(vertices, params.num_holes, params.separation)
         segment_sequence_template = generate_segment_sequence_template(params.num_passes)
         sequence = generate_polygon_sequence(holes, segment_sequence_template, params.num_passes, params.init_num_holes)
@@ -157,12 +156,11 @@ class PolygonSequencer:
     
     def __str__(self) -> str:
         lines = [
-            "***Polygon Sequencer***",
             f"No. passes: {self.params.num_passes}",
             f"Initial pass no. holes: {self.params.init_num_holes}",
             f"No. holes: {self.params.num_holes}",
-            f"Initial pass hole separation: {self.params.init_separation} µm",
-            f"Hole separation: {self.params.separation} µm"
+            f"Initial pass hole separation: {self.params.init_separation}",
+            f"Hole separation: {self.params.separation}"
         ]
         return "\n".join(lines)
     
