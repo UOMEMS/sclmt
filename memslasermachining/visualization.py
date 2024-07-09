@@ -5,8 +5,8 @@ Module containing a function for visualizing laser machining sequences.
 import random
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from config import PLOT_MARGIN_FACTOR
-from points import Point, PointArray
+from .config import PLOT_MARGIN_FACTOR
+from .points import Point, PointArray
 
 def animate_sequence(vertices: PointArray, sequence: list[list[Point]], animation_interval_ms: int) -> None:
     """
@@ -18,8 +18,6 @@ def animate_sequence(vertices: PointArray, sequence: list[list[Point]], animatio
     fig, ax = plt.subplots()
     ax.set_xlim(min_point.x, max_point.x)
     ax.set_ylim(min_point.y, max_point.y)
-    ax.set_xlabel('µm')
-    ax.set_ylabel('µm')
     ax.set_aspect('equal')
     
     # Split sequence into x and y values

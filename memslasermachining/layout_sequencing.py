@@ -6,19 +6,22 @@ from typing import Callable, Any, Self
 from functools import wraps
 import numpy as np
 from numpy.typing import ArrayLike
-from config import DEFAULT_TARGET_INIT_SEPARATION
-from points import Point, PointArray
-from polygon_sequencing import PolygonSequencer, PolygonSequencingError
-from visualization import animate_sequence
+from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
+from .unit_conversion import validate_unit
+from .points import Point, PointArray
+from .polygon_sequencing import PolygonSequencer, PolygonSequencingError
+from .visualization import animate_sequence
 
 class LayoutSequencer:
     """
     Generates the laser machining sequence for entire layouts.
     """
     def __init__(self) -> None:
+        self.length_unit: str = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
         self.target_init_separation: list[float] = None
+        self.target_separation: list[float] = None
         self.staggered: bool = False
         self.polygon_sequencers: list[PolygonSequencer] = None
         self.sequence: list[list[Point]] = None
@@ -31,14 +34,22 @@ class LayoutSequencer:
             @wraps(method)
             def wrapper(self, *args: Any, **kwargs: Any) -> Any:
                 if getattr(self, attribute_name) is None:
-                    error_message_roots = {"polygons_as_vertices" : "Set polygons",
-                                           "sequence" : "Generate sequence"}
+                    error_message_roots = {"polygons_as_vertices" : "Set polygons", "sequence" : "Generate sequence"}
                     error_message = error_message_roots[attribute_name] + " before invoking " + method.__name__ + "()"
                     raise RuntimeError(error_message)
                 return method(self, *args, **kwargs)
             return wrapper
         return decorator
     
+    def set_length_unit(self, unit: str) -> Self:
+        """
+        Sets unit of length for the layout and all configurations.
+        Does not perform a unit conversion when invoked multiple times.
+        """
+        validate_unit(unit)
+        self.length_unit = unit
+        return self
+
     def set_polygons(self, polygons_as_vertices: list[ArrayLike]) -> Self:
         """
         Sets the layout (list of polygons) to be laser machined.
@@ -57,28 +68,33 @@ class LayoutSequencer:
                 raise ValueError("Input arrays violate [N][2] shape requirement")
             # Convert NDArray of vertices to PointArray before storing
             self.polygons_as_vertices.append(PointArray(vertices_ndarray))
-        # Set target initial pass separation to default
+        # Set target initial and final pass separation to default
         self.num_polygons = len(self.polygons_as_vertices)
         self.target_init_separation = [DEFAULT_TARGET_INIT_SEPARATION for _ in range(self.num_polygons)]
+        self.target_separation = [DEFAULT_TARGET_SEPARATION for _ in range(self.num_polygons)]
         return self
 
     @validate_state('polygons_as_vertices')
-    def set_target_init_separation(self, target_init_separation_um: float | list[float]) -> Self:
+    def set_target_separation(self, target_separation: float | list[float], init_pass: bool) -> Self:
         """
-        Sets the targeted initial pass separation between adjacent hole centers in microns (µm) for each polygon (actual value will vary due to rounding).
+        Sets the targeted initial or final pass separation between adjacent hole centers for each polygon (actual values vary due to rounding).
+        If argument 'init_pass' is True, the initial separation is set, otherwise, the final separation is set.
         Provide as many values as polygons, or a single value for all polygons.
         """
-        if isinstance(target_init_separation_um, list):
-            if len(target_init_separation_um) != self.num_polygons:
-                raise ValueError("List of target initial pass separations does not match the number of polygons")
-            self.target_init_separation = target_init_separation_um
+        if isinstance(target_separation, list):
+            if len(target_separation) != self.num_polygons:
+                raise ValueError("List of target separations does not match the number of polygons")
         else:
-            self.target_init_separation = [target_init_separation_um for _ in range(self.num_polygons)]
+            target_separation = [target_separation for _ in range(self.num_polygons)]
+        if init_pass:
+            self.target_init_separation = target_separation
+        else:
+            self.target_separation = target_separation
         return self
 
     def set_staggered(self, staggered: bool) -> Self:
         """
-        If argument 'stagger' is True, the laser machining passes of all polygons are merged.
+        If argument 'staggered' is True, the laser machining passes of all polygons are merged.
         Otherwise, individual polygons are machined to completion before moving to the next (default).
         """
         self.staggered = staggered
@@ -96,8 +112,9 @@ class LayoutSequencer:
         for polygon_index in range(self.num_polygons):    
             vertices = self.polygons_as_vertices[polygon_index]
             target_init_separation = self.target_init_separation[polygon_index]
+            target_separation = self.target_separation[polygon_index]
             try:
-                polygon_sequencer = PolygonSequencer(vertices, target_init_separation)
+                polygon_sequencer = PolygonSequencer(vertices, target_init_separation, target_separation)
             except PolygonSequencingError as error:
                 raise ValueError(f"Polygons could not be sequenced\n{error}")
             num_passes_by_polygon.append(polygon_sequencer.params.num_passes)
