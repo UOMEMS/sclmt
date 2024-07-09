@@ -6,7 +6,8 @@ from typing import Callable, Any, Self
 from functools import wraps
 import numpy as np
 from numpy.typing import ArrayLike
-from .config import DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
+from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
+from .unit_conversion import validate_unit
 from .points import Point, PointArray
 from .polygon_sequencing import PolygonSequencer, PolygonSequencingError
 from .visualization import animate_sequence
@@ -16,6 +17,7 @@ class LayoutSequencer:
     Generates the laser machining sequence for entire layouts.
     """
     def __init__(self) -> None:
+        self.length_unit: str = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
         self.target_init_separation: list[float] = None
@@ -39,6 +41,15 @@ class LayoutSequencer:
             return wrapper
         return decorator
     
+    def set_length_unit(self, unit: str) -> Self:
+        """
+        Sets unit of length for the layout and all configurations.
+        Does not perform a unit conversion when invoked multiple times.
+        """
+        validate_unit(unit)
+        self.length_unit = unit
+        return self
+
     def set_polygons(self, polygons_as_vertices: list[ArrayLike]) -> Self:
         """
         Sets the layout (list of polygons) to be laser machined.

@@ -1,14 +1,15 @@
 """
-...
+Module containing constants that define default behaviour.
 """
 
 ### Sequencing ###
 
-# Values in micron (µm)
+DEFAULT_LENGTH_UNIT: str = "um"
+
 # Separation is measured between hole centers
-HOLE_DIAMETER = 1.0
-DEFAULT_TARGET_INIT_SEPARATION = HOLE_DIAMETER + 5.0
-DEFAULT_TARGET_SEPARATION = HOLE_DIAMETER / 2
+HOLE_DIAMETER: float = 1.0
+DEFAULT_TARGET_INIT_SEPARATION: float = HOLE_DIAMETER + 5.0
+DEFAULT_TARGET_SEPARATION: float = HOLE_DIAMETER / 2
 
 ### Visualization ###
 
