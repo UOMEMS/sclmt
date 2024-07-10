@@ -7,17 +7,17 @@ from functools import wraps
 import numpy as np
 from numpy.typing import ArrayLike
 from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
-from .unit_conversion import validate_unit
 from .points import Point, PointArray
 from .polygon_sequencing import PolygonSequencer, PolygonSequencingError
 from .visualization import animate_sequence
+from .file_interfaces import FileReader, FileWriter
 
 class LayoutSequencer:
     """
     Generates the laser machining sequence for entire layouts.
     """
     def __init__(self) -> None:
-        self.length_unit: str = DEFAULT_LENGTH_UNIT
+        self.length_unit: float = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
         self.target_init_separation: list[float] = None
@@ -41,12 +41,12 @@ class LayoutSequencer:
             return wrapper
         return decorator
     
-    def set_length_unit(self, unit: str) -> Self:
+    def set_length_unit(self, unit: float) -> Self:
         """
         Sets unit of length for the layout and all configurations.
+        Provide unit as a scaling factor with respect to meters (e.g., um → 1e-6).
         Does not perform a unit conversion when invoked multiple times.
         """
-        validate_unit(unit)
         self.length_unit = unit
         return self
 
@@ -144,3 +144,25 @@ class LayoutSequencer:
         else:
             polygons_as_vertices_merged = PointArray.concatenate(self.polygons_as_vertices)
             animate_sequence(polygons_as_vertices_merged, self.sequence, animation_interval_ms)
+
+    def read_file(self, file_reader: FileReader) -> Self:
+        """
+        Sets the layout to be laser machined from the contents of a file.
+        Adopts the length unit of the file being read.
+        """
+        self.set_length_unit(file_reader.get_length_unit())
+        self.set_polygons(file_reader.get_polygons_as_vertices())
+        return self
+    
+    @validate_state('sequence')
+    def write_file(self, file_writer: FileWriter) -> Self:
+        """
+        Writes the laser machining sequence of the loaded layout to a file.
+        Converts the length unit of hole coordinates to that of the file being written.
+        """
+        unit_conversion_factor = self.length_unit / file_writer.get_length_unit()
+        for current_pass in self.sequence:
+            for point in current_pass:
+                file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
+        file_writer.write_file()
+        return self
