@@ -11,9 +11,9 @@ class FileReader(ABC):
     """
 
     @abstractmethod
-    def get_length_unit(self) -> str:
+    def get_length_unit(self) -> float:
         """
-        Returns a string containing the length unit used by the file being read.
+        Returns length unit (scaling factor with respect to meters) used by the file being read.
         """
         pass
     
@@ -32,9 +32,9 @@ class FileWriter(ABC):
     """
 
     @abstractmethod
-    def get_length_unit(self) -> str:
+    def get_length_unit(self) -> float:
         """
-        Returns a string containing the length unit used by the file being written.
+        Returns length unit (scaling factor with respect to meters) used by the file being written.
         """
         pass
     
