@@ -18,11 +18,11 @@ class LayoutSequencer:
     """
     def __init__(self) -> None:
         self.length_unit: float = DEFAULT_LENGTH_UNIT
+        self.staggered: bool = False
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
         self.target_init_separation: list[float] = None
         self.target_separation: list[float] = None
-        self.staggered: bool = False
         self.polygon_sequencers: list[PolygonSequencer] = None
         self.sequence: list[list[Point]] = None
     
@@ -50,6 +50,14 @@ class LayoutSequencer:
         self.length_unit = unit
         return self
 
+    def set_staggered(self, staggered: bool) -> Self:
+        """
+        If argument 'staggered' is True, the laser machining passes of all polygons are merged.
+        Otherwise, individual polygons are machined to completion before moving to the next (default).
+        """
+        self.staggered = staggered
+        return self
+    
     def set_polygons(self, polygons_as_vertices: list[ArrayLike]) -> Self:
         """
         Sets the layout (list of polygons) to be laser machined.
@@ -92,12 +100,23 @@ class LayoutSequencer:
             self.target_separation = target_separation
         return self
 
-    def set_staggered(self, staggered: bool) -> Self:
+    @validate_state('polygons_as_vertices')
+    def scale_layout(self, scaling_factor: float) -> Self:
         """
-        If argument 'staggered' is True, the laser machining passes of all polygons are merged.
-        Otherwise, individual polygons are machined to completion before moving to the next (default).
+        Multiplies the vertex coordinates of each polygon in the loaded layout by the provided factor.
         """
-        self.staggered = staggered
+        for vertices in self.polygons_as_vertices:
+            vertices.scale(scaling_factor)
+        return self
+    
+    @validate_state('polygons_as_vertices')
+    def rotate_layout(self, angle_rad: float) -> Self:
+        """
+        Rotates the vertices of each polygon in the loaded layout about the origin (0,0) by the provided angle.
+        Positive angles cause counterclockwise rotations.
+        """
+        for vertices in self.polygons_as_vertices:
+            vertices.rotate(angle_rad)
         return self
     
     @validate_state('polygons_as_vertices')
