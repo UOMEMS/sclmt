@@ -72,6 +72,23 @@ class PointArray:
         for point in self.points:
             yield Point(point)
     
+    def scale(self, scaling_factor: float) -> None:
+        """
+        Multiplies the coordinates of each point in this PointArray by the provided factor.
+        """
+        self.points = self.points * scaling_factor
+    
+    def rotate(self, angle_rad: float) -> None:
+        """
+        Rotates each point in this PointArray about the origin (0,0) by the provided angle.
+        Positive angles cause counterclockwise rotations.
+        """
+        rotation_matrix = np.array([
+            [np.cos(angle_rad), -np.sin(angle_rad)],
+            [np.sin(angle_rad), np.cos(angle_rad)]
+        ])
+        self.points = np.dot(self.points, rotation_matrix.T)
+
     def bounding_points(self, margin_factor: float = 0) -> tuple[Point, Point]:
         """
         Returns min and max Point instances that bound this PointArray.
