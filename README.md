@@ -120,6 +120,7 @@ The `compensate()` method in `LayoutSequencer` scales and rotates the loaded lay
   <figcaption>Membrane compensation diagram.</figcaption>
 </figure>
 
+
 **Symbols:**
 
 - $L$: actual membrane side length
