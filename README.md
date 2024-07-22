@@ -5,7 +5,7 @@ This package generates fracture-free laser machining sequences for prestressed m
 The underlying sequencing algorithm lays a staggered pattern of holes in successive passes, allowing layouts to be machined from membranes without forming cracks (adapted from [Xie et. al](https://doi.org/10.1016/j.jmatprotec.2023.118001)).
 
 <figure>
-  <img src="assets\machining_sequence_demo.gif" width="600"/>
+  <img src="assets\machining_sequence_demo.gif" alt="">
   <figcaption>Trampoline machining sequence (each color represents a different pass and holes are not to scale).</figcaption>
 </figure>
 
@@ -116,7 +116,7 @@ x -> -0.7690276584655001, y -> 0.3586034864745.
 The `compensate()` method in `LayoutSequencer` scales and rotates the loaded layout to address variances between the nominal and actual size of the square membrane being machined, as well as any misalignment with the laser machining stage. This method is essential whenever features need to be machined on the membrane boundary. If measurement accuracy is limited, add a 1-micron padding to the displacement values, resulting in the layout being slightly inset.
 
 <figure>
-  <img src="assets\compensation_diagram.jpg" width="600"/>
+  <img src="assets\compensation_diagram.jpg" alt="">
   <figcaption>Membrane compensation diagram.</figcaption>
 </figure>
 
