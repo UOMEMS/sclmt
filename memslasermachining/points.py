@@ -89,6 +89,12 @@ class PointArray:
         ])
         self.points = np.dot(self.points, rotation_matrix.T)
 
+    def translate(self, dx: float, dy: float) -> None:
+        """
+        Translates all points in this PointArray by the provided changes in x and y.
+        """
+        self.points = self.points + np.array([dx, dy])
+
     def bounding_points(self, margin_factor: float = 0) -> tuple[Point, Point]:
         """
         Returns min and max Point instances that bound this PointArray.

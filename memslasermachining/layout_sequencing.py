@@ -103,7 +103,7 @@ class LayoutSequencer:
     @validate_state('polygons_as_vertices')
     def scale_layout(self, scaling_factor: float) -> Self:
         """
-        Multiplies the vertex coordinates of each polygon in the loaded layout by the provided factor.
+        Multiplies the vertices of each polygon in the loaded layout by the provided factor.
         """
         for vertices in self.polygons_as_vertices:
             vertices.scale(scaling_factor)
@@ -117,6 +117,15 @@ class LayoutSequencer:
         """
         for vertices in self.polygons_as_vertices:
             vertices.rotate(angle_rad)
+        return self
+    
+    @validate_state('polygons_as_vertices')
+    def translate_layout(self, dx: float, dy: float) -> Self:
+        """
+        Translates the vertices of each polygon in the loaded layout by the provided changes in x and y.
+        """
+        for vertices in self.polygons_as_vertices:
+            vertices.translate(dx, dy)
         return self
     
     @validate_state('polygons_as_vertices')
