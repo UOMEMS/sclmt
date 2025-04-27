@@ -2,7 +2,7 @@
 Module containing the 'AeroBasicFileWriter' class, which writes the laser machining sequence of a layout to an AeroBasic program file.
 """
 
-from .file_interfaces import FileWriter
+from .interfaces import FileWriter
 
 class AeroBasicFileWriter(FileWriter):
     """

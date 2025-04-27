@@ -1,5 +1,5 @@
 """
-Module containing a function for visualizing laser machining sequences.
+Module containing visualization functions.
 """
 
 import random
@@ -7,6 +7,32 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from .config import PLOT_MARGIN_FACTOR
 from .points import Point, PointArray
+
+def plot_polygons(polygons_as_vertices: list[PointArray]) -> None:
+    """
+    Plots the provided polygons. Colors represent machining order.
+    """
+    # Merge vertices of all polygons to find bounds
+    polygons_as_vertices_merged = PointArray.concatenate(polygons_as_vertices)
+    min_point, max_point = polygons_as_vertices_merged.bounding_points(margin_factor=PLOT_MARGIN_FACTOR)
+    
+    _, ax = plt.subplots()
+    ax.set_xlim(min_point.x, max_point.x)
+    ax.set_ylim(min_point.y, max_point.y)
+    ax.set_aspect('equal')
+    
+    # Generate random colors for each polygon
+    colors = [f"#{random.randint(0, 0xFFFFFF):06x}" for _ in range(len(polygons_as_vertices))]
+    
+    # Plot each polygon
+    for i, polygon in enumerate(polygons_as_vertices):
+        x_coords = [point.x for point in polygon]
+        y_coords = [point.y for point in polygon]
+        ax.fill(x_coords, y_coords, color=colors[i], alpha=0.6, label=f"{i+1}")
+    
+    # Add legend
+    ax.legend(loc='upper center', ncol=len(polygons_as_vertices), frameon=False)
+    plt.show()
 
 def animate_sequence(vertices: PointArray, sequence: list[list[Point]], animation_interval_ms: int) -> None:
     """

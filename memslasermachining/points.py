@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 class Point:
     def __init__(self, coords: NDArray[np.float64]) -> None:
         """
-        Argument 'coords' must be a 2-element array.
+        Argument `coords` must be a 2-element array.
         """
         self.coords = coords
     
@@ -46,7 +46,7 @@ class Point:
 class PointArray:
     def __init__(self, points: NDArray[np.float64]) -> None:
         """
-        Argument 'points' must be of shape [N][2].
+        Argument `points` must be of shape [N][2].
         """
         self.points = points
 
@@ -71,16 +71,25 @@ class PointArray:
     def __iter__(self) -> Iterator[Point]:
         for point in self.points:
             yield Point(point)
-    
-    def scale(self, scaling_factor: float) -> None:
+
+    def translate(self, dx: float, dy: float) -> None:
         """
-        Multiplies the coordinates of each point in this PointArray by the provided factor.
+        Translates all points in this PointArray by the provided offsets.
         """
-        self.points = self.points * scaling_factor
-    
+        self.points = self.points + np.array([dx, dy])
+
+    def scale(self, scaling_factor_x: float, scaling_factor_y: float | None = None) -> None:
+        """
+        Scales all points in this PointArray by the provided factors.
+        If `scaling_factor_y` is not provided, it will use the same value as `scaling_factor_x`.
+        """
+        if scaling_factor_y is None:
+            scaling_factor_y = scaling_factor_x
+        self.points = self.points * np.array([scaling_factor_x, scaling_factor_y])
+
     def rotate(self, angle_rad: float) -> None:
         """
-        Rotates each point in this PointArray about the origin (0,0) by the provided angle.
+        Rotates all points in this PointArray about (0,0) by the provided angle.
         Positive angles cause counterclockwise rotations.
         """
         rotation_matrix = np.array([
@@ -88,12 +97,6 @@ class PointArray:
             [np.sin(angle_rad), np.cos(angle_rad)]
         ])
         self.points = np.dot(self.points, rotation_matrix.T)
-
-    def translate(self, dx: float, dy: float) -> None:
-        """
-        Translates all points in this PointArray by the provided changes in x and y.
-        """
-        self.points = self.points + np.array([dx, dy])
 
     def bounding_points(self, margin_factor: float = 0) -> tuple[Point, Point]:
         """
@@ -131,7 +134,7 @@ class PointArray:
     def sum_of_distances(self, wraparound: bool = False) -> np.float64:
         """
         Returns the sum of Euclidean distances between adjacent points.
-        If 'wraparound' is true, distance between the first and last point is included.
+        If `wraparound` is true, distance between the first and last point is included.
         """
         # Use np.roll to shift array and find differences between adjacent points including wraparound
         diffs = self.points - np.roll(self.points, -1, axis = 0)

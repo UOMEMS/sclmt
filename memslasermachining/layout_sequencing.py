@@ -9,8 +9,8 @@ from numpy.typing import ArrayLike
 from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
 from .points import Point, PointArray
 from .polygon_sequencing import PolygonSequencer, PolygonSequencingError
-from .visualization import animate_sequence
-from .file_interfaces import FileReader, FileWriter
+from .visualization import plot_polygons, animate_sequence
+from .interfaces import FileReader, LayoutAligner, FileWriter
 
 class LayoutSequencer:
     """
@@ -101,63 +101,31 @@ class LayoutSequencer:
         return self
 
     @validate_state('polygons_as_vertices')
-    def scale_layout(self, scaling_factor: float) -> Self:
+    def translate_layout(self, dx: float, dy: float) -> Self:
         """
-        Multiplies the vertices of each polygon in the loaded layout by the provided factor.
+        Translates all polygons in the loaded layout by the provided offsets.
         """
         for vertices in self.polygons_as_vertices:
-            vertices.scale(scaling_factor)
+            vertices.translate(dx, dy)
+        return self
+
+    @validate_state('polygons_as_vertices')
+    def scale_layout(self, scaling_factor_x: float, scaling_factor_y: float | None = None) -> Self:
+        """
+        Scales all polygons in the loaded layout by the provided factors.
+        If `scaling_factor_y` is not provided, it will use the same value as `scaling_factor_x`.
+        """
+        for vertices in self.polygons_as_vertices:
+            vertices.scale(scaling_factor_x, scaling_factor_y)
         return self
     
     @validate_state('polygons_as_vertices')
     def rotate_layout(self, angle_rad: float) -> Self:
         """
-        Rotates the vertices of each polygon in the loaded layout about the origin (0,0) by the provided angle.
-        Positive angles cause counterclockwise rotations.
+        Rotates all polygons in the loaded layout about (0,0) by the provided angle.
         """
         for vertices in self.polygons_as_vertices:
             vertices.rotate(angle_rad)
-        return self
-    
-    @validate_state('polygons_as_vertices')
-    def translate_layout(self, dx: float, dy: float) -> Self:
-        """
-        Translates the vertices of each polygon in the loaded layout by the provided changes in x and y.
-        """
-        for vertices in self.polygons_as_vertices:
-            vertices.translate(dx, dy)
-        return self
-    
-    @validate_state('polygons_as_vertices')
-    def compensate(self, nominal_membrane_side_length: float, disp_x: float, disp_y: float) -> Self:
-        """
-        *See diagram in README.*
-        - Scales and rotates the loaded layout to compensate for misalignment and variance between the nominal and actual size of the square membrane being machined.
-        - Prints a message with a description of the layout transformation and the vector from the bottom right corner to the membrane center.
-        - Arguments 'disp_x' and 'disp_y' are displacement components from the bottom left to the bottom right corner of the membrane.
-        - Ensure all arguments have the same length unit.
-        """
-        # Get scaling factor
-        actual_membrane_side_length = np.sqrt(disp_x ** 2 + disp_y ** 2)
-        scaling_factor = actual_membrane_side_length / nominal_membrane_side_length
-        # Get vector from bottom right corner to membrane center
-        membrane_angle = np.arctan2(disp_y, disp_x)
-        if membrane_angle < -np.pi / 4 or membrane_angle > np.pi / 4:
-            raise ValueError("Wrong corners chosen, membrane angle is not within [-45, 45] degrees")
-        vector_angle = np.pi / 4 - membrane_angle
-        membrane_diag_half_length = (np.sqrt(2) / 2) * actual_membrane_side_length
-        vector_x = -membrane_diag_half_length * np.cos(vector_angle)
-        vector_y = membrane_diag_half_length * np.sin(vector_angle)
-        # Apply transformations
-        self.scale_layout(scaling_factor)
-        self.rotate_layout(membrane_angle)
-        # Print message
-        message = "\n".join([
-            f"Acutal membrane side length: {actual_membrane_side_length}.",
-            f"Layout scaled by {scaling_factor * 100 - 100}% and rotated by {np.degrees(membrane_angle)} degrees.",
-            f"Vector from bottom right corner to membrane center: x -> {vector_x}, y -> {vector_y}."
-        ])
-        print(message)
         return self
 
     @validate_state('polygons_as_vertices')
@@ -192,6 +160,15 @@ class LayoutSequencer:
                 self.sequence.extend(polygon_sequencer.sequence)
         return self
 
+    @validate_state('polygons_as_vertices')
+    def view_layout(self) -> Self:
+        """
+        Plots the loaded layout. Colors represent machining order.
+        Useful for checking a layout after applying a transformation.
+        """
+        plot_polygons(self.polygons_as_vertices)
+        return self
+
     @validate_state('sequence')
     def view_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> None:
         """
@@ -214,6 +191,21 @@ class LayoutSequencer:
         self.set_polygons(file_reader.get_polygons_as_vertices())
         return self
     
+    @validate_state('polygons_as_vertices')
+    def align_layout(self, layout_aligner: LayoutAligner) -> Self:
+        """
+        Aligns the loaded layout with the physical substrate to be laser machined.
+        """
+        transformations = layout_aligner.get_transformations()
+        for transformation in transformations:
+            if isinstance(transformation, LayoutAligner.Translation):
+                self.translate_layout(transformation.dx, transformation.dy)
+            elif isinstance(transformation, LayoutAligner.Scaling):
+                self.scale_layout(transformation.scaling_factor_x, transformation.scaling_factor_y)
+            elif isinstance(transformation, LayoutAligner.Rotation):
+                self.rotate_layout(transformation.angle_rad)
+        return self
+
     @validate_state('sequence')
     def write_file(self, file_writer: FileWriter) -> Self:
         """

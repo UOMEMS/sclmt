@@ -4,7 +4,7 @@ Module containing the 'GDSFileReader' class, which reads the layout to be laser 
 
 from numpy.typing import ArrayLike
 import gdspy
-from .file_interfaces import FileReader
+from .interfaces import FileReader
 
 class GDSFileReader(FileReader):
     """
