@@ -10,22 +10,26 @@ from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT
 from .points import Point, PointArray
 from .polygon_sequencing import PolygonSequencer, PolygonSequencingError
 from .visualization import plot_polygons, animate_sequence
-from .interfaces import FileReader, LayoutAligner, FileWriter
+from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
 
 class LayoutSequencer:
     """
     Generates the laser machining sequence for entire layouts.
     """
+
+    # ----------------------------
+    # Construction and state validation
+    # ----------------------------
+
     def __init__(self) -> None:
         self.length_unit: float = DEFAULT_LENGTH_UNIT
-        self.staggered: bool = False
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
         self.target_init_separation: list[float] = None
         self.target_separation: list[float] = None
         self.polygon_sequencers: list[PolygonSequencer] = None
         self.sequence: list[list[Point]] = None
-    
+
     def validate_state(attribute_name: str) -> Callable:
         """
         Decorator to validate that a specific attribute is not None.
@@ -34,13 +38,21 @@ class LayoutSequencer:
             @wraps(method)
             def wrapper(self, *args: Any, **kwargs: Any) -> Any:
                 if getattr(self, attribute_name) is None:
-                    error_message_roots = {"polygons_as_vertices" : "Set polygons", "sequence" : "Generate sequence"}
+                    error_message_roots = {
+                        "polygons_as_vertices" : "Set polygons",
+                        "polygon_sequencers" : "Generate polygon hole sequences",
+                        "sequence" : "Generate sequence"
+                    }
                     error_message = error_message_roots[attribute_name] + " before invoking " + method.__name__ + "()"
                     raise RuntimeError(error_message)
                 return method(self, *args, **kwargs)
             return wrapper
         return decorator
-    
+
+    # ----------------------------
+    # Layout loading
+    # ----------------------------
+
     def set_length_unit(self, unit: float) -> Self:
         """
         Sets unit of length for the layout and all configurations.
@@ -50,14 +62,6 @@ class LayoutSequencer:
         self.length_unit = unit
         return self
 
-    def set_staggered(self, staggered: bool) -> Self:
-        """
-        If argument 'staggered' is True, the laser machining passes of all polygons are merged.
-        Otherwise, individual polygons are machined to completion before moving to the next (default).
-        """
-        self.staggered = staggered
-        return self
-    
     def set_polygons(self, polygons_as_vertices: list[ArrayLike]) -> Self:
         """
         Sets the layout (list of polygons) to be laser machined.
@@ -82,23 +86,18 @@ class LayoutSequencer:
         self.target_separation = [DEFAULT_TARGET_SEPARATION for _ in range(self.num_polygons)]
         return self
 
-    @validate_state('polygons_as_vertices')
-    def set_target_separation(self, target_separation: float | list[float], init_pass: bool) -> Self:
+    def read_file(self, file_reader: FileReader) -> Self:
         """
-        Sets the targeted initial or final pass separation between adjacent hole centers for each polygon (actual values vary due to rounding).
-        If argument 'init_pass' is True, the initial separation is set, otherwise, the final separation is set.
-        Provide as many values as polygons, or a single value for all polygons.
+        Sets the layout to be laser machined from the contents of a file.
+        Adopts the length unit of the file being read.
         """
-        if isinstance(target_separation, list):
-            if len(target_separation) != self.num_polygons:
-                raise ValueError("List of target separations does not match the number of polygons")
-        else:
-            target_separation = [target_separation for _ in range(self.num_polygons)]
-        if init_pass:
-            self.target_init_separation = target_separation
-        else:
-            self.target_separation = target_separation
+        self.set_length_unit(file_reader.get_length_unit())
+        self.set_polygons(file_reader.get_polygons_as_vertices())
         return self
+
+    # ----------------------------
+    # Layout transformations
+    # ----------------------------
 
     @validate_state('polygons_as_vertices')
     def translate_layout(self, dx: float, dy: float) -> Self:
@@ -118,7 +117,7 @@ class LayoutSequencer:
         for vertices in self.polygons_as_vertices:
             vertices.scale(scaling_factor_x, scaling_factor_y)
         return self
-    
+
     @validate_state('polygons_as_vertices')
     def rotate_layout(self, angle_rad: float) -> Self:
         """
@@ -129,15 +128,52 @@ class LayoutSequencer:
         return self
 
     @validate_state('polygons_as_vertices')
-    def generate_sequence(self) -> Self:
+    def align_layout(self, layout_aligner: LayoutAligner) -> Self:
         """
-        Generates the laser machining sequence for the loaded layout.
-        Set all required configurations and layout transformations before calling this method.
+        Aligns the loaded layout with the physical substrate to be laser machined.
+        """
+        transformations = layout_aligner.get_transformations()
+        for transformation in transformations:
+            if isinstance(transformation, LayoutAligner.Translation):
+                self.translate_layout(transformation.dx, transformation.dy)
+            elif isinstance(transformation, LayoutAligner.Scaling):
+                self.scale_layout(transformation.scaling_factor_x, transformation.scaling_factor_y)
+            elif isinstance(transformation, LayoutAligner.Rotation):
+                self.rotate_layout(transformation.angle_rad)
+        return self
+
+    # ----------------------------
+    # Hole sequence generation and merging
+    # ----------------------------
+
+    @validate_state('polygons_as_vertices')
+    def set_target_separation(self, target_separation: float | list[float], init_pass: bool) -> Self:
+        """
+        Sets the targeted initial or final pass separation between adjacent hole centers for each polygon (actual values vary due to rounding).
+        If argument 'init_pass' is True, the initial separation is set, otherwise, the final separation is set.
+        Provide as many values as polygons, or a single value for all polygons.
+        """
+        if isinstance(target_separation, list):
+            if len(target_separation) != self.num_polygons:
+                raise ValueError("List of target separations does not match the number of polygons")
+        else:
+            target_separation = [target_separation for _ in range(self.num_polygons)]
+        if init_pass:
+            self.target_init_separation = target_separation
+        else:
+            self.target_separation = target_separation
+        return self
+
+    @validate_state('polygons_as_vertices')
+    def generate_layout_hole_sequence(self, hole_sequence_merger: HoleSequenceMerger) -> Self:
+        """
+        Generates the hole sequence needed to laser machine the loaded layout.
+        Polygon hole sequences are generated separately then merged into a single layout hole sequence according to the provided 'hole_sequence_merger'.
+        All configurations and layout transformations should be set before calling this method.
         """
         # Try to sequence polygons
-        num_passes_by_polygon = []
         self.polygon_sequencers = []
-        for polygon_index in range(self.num_polygons):    
+        for polygon_index in range(self.num_polygons):
             vertices = self.polygons_as_vertices[polygon_index]
             target_init_separation = self.target_init_separation[polygon_index]
             target_separation = self.target_separation[polygon_index]
@@ -145,20 +181,33 @@ class LayoutSequencer:
                 polygon_sequencer = PolygonSequencer(vertices, target_init_separation, target_separation)
             except PolygonSequencingError as error:
                 raise ValueError(f"Polygons could not be sequenced\n{error}")
-            num_passes_by_polygon.append(polygon_sequencer.params.num_passes)
             self.polygon_sequencers.append(polygon_sequencer)
-        # Generate global machining sequence
-        if self.staggered:
-            max_num_passes = max(num_passes_by_polygon)
-            self.sequence = [[] for _ in range(max_num_passes)]
-            for polygon_sequencer in self.polygon_sequencers:
-                for pass_index in range(polygon_sequencer.params.num_passes):
-                    self.sequence[pass_index].extend(polygon_sequencer.sequence[pass_index])
-        else:
-            self.sequence = []
-            for polygon_sequencer in self.polygon_sequencers:
-                self.sequence.extend(polygon_sequencer.sequence)
+
+        # Merge polygon hole sequences
+        polygon_hole_sequences = [polygon_sequencer.sequence for polygon_sequencer in self.polygon_sequencers]
+        self.sequence = hole_sequence_merger.get_merged_hole_sequence(polygon_hole_sequences)
         return self
+
+    # ----------------------------
+    # Numerical control generation
+    # ----------------------------
+
+    @validate_state('sequence')
+    def write_file(self, file_writer: FileWriter) -> Self:
+        """
+        Writes the laser machining sequence of the loaded layout to a file.
+        Converts the length unit of hole coordinates to that of the file being written.
+        """
+        unit_conversion_factor = self.length_unit / file_writer.get_length_unit()
+        for current_pass in self.sequence:
+            for point in current_pass:
+                file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
+        file_writer.write_file()
+        return self
+
+    # ----------------------------
+    # Visualization
+    # ----------------------------
 
     @validate_state('polygons_as_vertices')
     def view_layout(self) -> Self:
@@ -181,40 +230,3 @@ class LayoutSequencer:
         else:
             polygons_as_vertices_merged = PointArray.concatenate(self.polygons_as_vertices)
             animate_sequence(polygons_as_vertices_merged, self.sequence, animation_interval_ms)
-
-    def read_file(self, file_reader: FileReader) -> Self:
-        """
-        Sets the layout to be laser machined from the contents of a file.
-        Adopts the length unit of the file being read.
-        """
-        self.set_length_unit(file_reader.get_length_unit())
-        self.set_polygons(file_reader.get_polygons_as_vertices())
-        return self
-    
-    @validate_state('polygons_as_vertices')
-    def align_layout(self, layout_aligner: LayoutAligner) -> Self:
-        """
-        Aligns the loaded layout with the physical substrate to be laser machined.
-        """
-        transformations = layout_aligner.get_transformations()
-        for transformation in transformations:
-            if isinstance(transformation, LayoutAligner.Translation):
-                self.translate_layout(transformation.dx, transformation.dy)
-            elif isinstance(transformation, LayoutAligner.Scaling):
-                self.scale_layout(transformation.scaling_factor_x, transformation.scaling_factor_y)
-            elif isinstance(transformation, LayoutAligner.Rotation):
-                self.rotate_layout(transformation.angle_rad)
-        return self
-
-    @validate_state('sequence')
-    def write_file(self, file_writer: FileWriter) -> Self:
-        """
-        Writes the laser machining sequence of the loaded layout to a file.
-        Converts the length unit of hole coordinates to that of the file being written.
-        """
-        unit_conversion_factor = self.length_unit / file_writer.get_length_unit()
-        for current_pass in self.sequence:
-            for point in current_pass:
-                file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
-        file_writer.write_file()
-        return self

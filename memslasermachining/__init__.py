@@ -1,15 +1,19 @@
 from .layout_sequencing import LayoutSequencer
-from .interfaces import FileReader, LayoutAligner, FileWriter
+from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
 from .gds_file_reading import GDSFileReader
 from .square_membrane_layout_alignment import SquareMembraneLayoutAligner
+from .hole_sequence_merging import ConsecutiveHoleSequenceMerger, InterleavedHoleSequenceMerger
 from .aerobasic_file_writing import AeroBasicFileWriter
 
 __all__ = [
     'LayoutSequencer',
     'FileReader',
     'LayoutAligner',
+    'HoleSequenceMerger',
     'FileWriter',
     'GDSFileReader',
     'SquareMembraneLayoutAligner',
+    'ConsecutiveHoleSequenceMerger',
+    'InterleavedHoleSequenceMerger',
     'AeroBasicFileWriter',
 ]
