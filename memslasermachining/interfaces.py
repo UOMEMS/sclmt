@@ -5,6 +5,7 @@ Module containing interfaces (abstract classes) for reading files, aligning layo
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numpy.typing import ArrayLike
+from .points import Point
 
 class FileReader(ABC):
     """
@@ -69,6 +70,22 @@ class LayoutAligner(ABC):
         """
         Returns a list of transformations to be applied to the layout.
         The order of transformations in the list determines the order of application.
+        """
+        pass
+
+class HoleSequenceMerger(ABC):
+    """
+    Used to merge multiple hole sequences into a single hole sequence.
+    """
+
+    @abstractmethod
+    def get_merged_hole_sequence(self, hole_sequences: list[list[list[Point]]]) -> list[list[Point]]:
+        """
+        Returns the merged hole sequence.
+        Argument `hole_sequences` is a list of hole sequences.
+        Each hole sequence is a list of passes.
+        Each pass is a list of holes.
+        Each hole is represented as a Point instance.
         """
         pass
 
