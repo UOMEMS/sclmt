@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
 from .points import Point, PointArray
-from .polygon_sequencing import PolygonSequencer, PolygonSequencingError
+from .polygon_hole_sequence_generation import PolygonSequencer, PolygonSequencingError
 from .visualization import plot_polygons, animate_sequence
 from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
 
