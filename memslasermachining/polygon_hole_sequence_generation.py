@@ -1,44 +1,48 @@
 """
-Module containing the 'PolygonSequencer' class, which generates the laser machining sequence for individual polygons.
+Module containing the 'PolygonHoleSequenceGenerator' class, which generates the hole sequence needed to laser machine a single polygon.
 """
 
 from dataclasses import dataclass
 import numpy as np
 from .points import Point, PointArray
-from .visualization import animate_sequence
+from .logging import Loggable
 
 @dataclass
-class PolygonSequenceParams:
+class PolygonHoleSequencePlan:
     num_passes: int
-    init_num_holes: int
-    num_holes: int
-    init_separation: float
-    separation: float
+    initial_num_holes: int
+    total_num_holes: int
+    initial_hole_separation: float
+    final_hole_separation: float
 
-class PolygonSequencingError(Exception):
+class PolygonHoleSequencePlanningError(Exception):
     pass
 
-def decompose_polygon(vertices: PointArray, target_init_separation: float, target_separation: float) -> PolygonSequenceParams:
+def plan_polygon_hole_sequence(polygon_perimeter: float, target_initial_hole_separation: float, target_final_hole_separation: float) -> PolygonHoleSequencePlan:
     """
-    Returns object containing no. passes (excluding initial pass), no. holes, and hole separation required to machine a polygon.
+    Returns object containing no. passes excluding initial pass, initial and total no. holes, and initial and final hole separations needed to laser machine a polygon.
+    Raises 'PolygonHoleSequencePlanningError' if input is invalid.
     """
-    if target_init_separation <= target_separation:
-        raise PolygonSequencingError("Targeted initial hole separation must be larger than final separation")
-    perimeter = vertices.sum_of_distances(wraparound = True)
-    if target_init_separation >= perimeter:
-        raise PolygonSequencingError(f"Targeted initial hole separation must be smaller than polygon perimeter ({perimeter})")
-    init_num_holes = round(perimeter / target_init_separation)
-    if init_num_holes < 2:
-        raise PolygonSequencingError("Targeted initial hole separation yielded less than 2 initial holes")
-    num_passes = round(np.log2(perimeter / (init_num_holes * target_separation)))
-    num_holes = init_num_holes + ((2 ** num_passes) - 1) * init_num_holes
-    init_separation = perimeter / init_num_holes
-    separation = perimeter / num_holes
-    return PolygonSequenceParams(num_passes, init_num_holes, num_holes, init_separation, separation)
+    
+    # Validate input
+    if target_initial_hole_separation <= target_final_hole_separation:
+        raise PolygonHoleSequencePlanningError(f"Target initial hole separation ({target_initial_hole_separation}) must be larger than target final hole separation ({target_final_hole_separation})")
+    if target_initial_hole_separation >= polygon_perimeter:
+        raise PolygonHoleSequencePlanningError(f"Target initial hole separation ({target_initial_hole_separation}) must be smaller than polygon perimeter ({polygon_perimeter})")
+    initial_num_holes = round(polygon_perimeter / target_initial_hole_separation)
+    if initial_num_holes < 2:
+        raise PolygonHoleSequencePlanningError(f"Target initial hole separation ({target_initial_hole_separation}) yielded less than 2 initial holes")
+    
+    # Generate plan
+    num_passes = round(np.log2(polygon_perimeter / (initial_num_holes * target_final_hole_separation)))
+    total_num_holes = initial_num_holes * 2**num_passes
+    initial_hole_separation = polygon_perimeter / initial_num_holes
+    final_hole_separation = polygon_perimeter / total_num_holes
+    return PolygonHoleSequencePlan(num_passes, initial_num_holes, total_num_holes, initial_hole_separation, final_hole_separation)
 
-def densify_polygon(vertices: PointArray, num_points: int, separation: float) -> list[Point]:
+def generate_polygon_holes(vertices: PointArray, num_points: int, separation: float) -> list[Point]:
     """
-    Returns list of Point instances placed equidistantly along a polygon's perimeter.
+    Returns list of Point instances placed equidistantly along a polygon's perimeter, representing the holes to be laser machined.
     """
 
     # Select first vertex as first point
@@ -79,7 +83,7 @@ def densify_polygon(vertices: PointArray, num_points: int, separation: float) ->
 
     return points
 
-def generate_segment_sequence_template(num_passes: int) -> list[list[int]]:
+def generate_segment_hole_sequence_template(num_passes: int) -> list[list[int]]:
     """
     Returns a list, where each element is a list of segment hole indices belonging to a specific machining pass.
     Assumes segments are bounded by two initial holes which are excluded from the sequence.
@@ -93,28 +97,28 @@ def generate_segment_sequence_template(num_passes: int) -> list[list[int]]:
     
     # Logarithmically partitions list of segment hole indices
     # Assigns the index of each hole to a machining pass
-    def recurse(segment_sequence_template: list[list[int]], partition: list[int], pass_index: int) -> None:
+    def recurse(segment_hole_sequence_template: list[list[int]], partition: list[int], pass_index: int) -> None:
         partition_length = len(partition)
         # Base case: no middle element
         if partition_length < 3: return
         # General case: append middle element to this pass
-        segment_sequence_template[pass_index].append(partition[middle_index(partition)])
+        segment_hole_sequence_template[pass_index].append(partition[middle_index(partition)])
         # Recursive case: partition can be decomposed further
         if partition_length == 3: return
         left = left_partition(partition)
         right = right_partition(partition)
-        recurse(segment_sequence_template, left, pass_index + 1)
-        recurse(segment_sequence_template, right, pass_index + 1)
+        recurse(segment_hole_sequence_template, left, pass_index + 1)
+        recurse(segment_hole_sequence_template, right, pass_index + 1)
 
     # Initiate sequencing
     # There are 2^num_passes - 1 internal + 2 bounding holes per segment
     segment_num_holes = ((2 ** num_passes) - 1) + 2
     segment_hole_indices = [i for i in range(segment_num_holes)]
-    segment_sequence_template = [[] for _ in range(num_passes)]
-    recurse(segment_sequence_template, segment_hole_indices, 0)
-    return segment_sequence_template
+    segment_hole_sequence_template = [[] for _ in range(num_passes)]
+    recurse(segment_hole_sequence_template, segment_hole_indices, 0)
+    return segment_hole_sequence_template
 
-def generate_polygon_sequence(holes: list[Point], segment_sequence_template: list[list[int]], num_passes: int, init_num_holes: int) -> list[list[Point]]:
+def generate_polygon_hole_sequence(holes: list[Point], segment_hole_sequence_template: list[list[int]], num_passes: int, initial_num_holes: int) -> list[list[Point]]:
     """
     Returns a list, where each element is a list of Point instances representing holes belonging to a specific machining pass.
     Argument 'num_passes' excludes the initial pass.
@@ -123,49 +127,58 @@ def generate_polygon_sequence(holes: list[Point], segment_sequence_template: lis
     # Each segment of the polygon contains the same number of holes
     # The sequence of a single segment can be used to sequence the entire polygon in O(num_holes) time
     # Indices of equivalent holes in adjacent segments are separated by an offset = 2^num_passes
-    num_segments = init_num_holes
+    num_segments = initial_num_holes
     base_index_offset = 2 ** num_passes
-    polygon_sequence = [[] for _ in range(num_passes)]
+    polygon_hole_sequence = [[] for _ in range(num_passes)]
     for pass_index in range(num_passes):
-        segment_hole_indices = segment_sequence_template[pass_index]
+        segment_hole_indices = segment_hole_sequence_template[pass_index]
         for segment_index in range(num_segments):
             for segment_hole_index in segment_hole_indices:
                 target_hole = holes[segment_hole_index + base_index_offset * segment_index]
-                polygon_sequence[pass_index].append(target_hole)
+                polygon_hole_sequence[pass_index].append(target_hole)
     
     # Add initial holes
-    polygon_sequence.insert(0, [])
-    for init_hole_index in [base_index_offset * i for i in range(init_num_holes)]:
-        init_hole = holes[init_hole_index]
-        polygon_sequence[0].append(init_hole)
-    return polygon_sequence
+    polygon_hole_sequence.insert(0, [])
+    for initial_hole_index in [base_index_offset * i for i in range(initial_num_holes)]:
+        initial_hole = holes[initial_hole_index]
+        polygon_hole_sequence[0].append(initial_hole)
+    return polygon_hole_sequence
 
-class PolygonSequencer:
+class PolygonHoleSequenceGenerator(Loggable):
     """
-    Generates the laser machining sequence for individual polygons.
+    Generates the hole sequence needed to laser machine a single polygon.
     """
-    def __init__(self, vertices: PointArray, target_init_separation: float, target_separation: float) -> None:
-        params = decompose_polygon(vertices, target_init_separation, target_separation)
-        holes = densify_polygon(vertices, params.num_holes, params.separation)
-        segment_sequence_template = generate_segment_sequence_template(params.num_passes)
-        sequence = generate_polygon_sequence(holes, segment_sequence_template, params.num_passes, params.init_num_holes)
-        self.vertices = vertices
-        self.params = params
-        params.num_passes += 1
-        self.sequence = sequence
-    
-    def __str__(self) -> str:
-        lines = [
-            f"No. passes: {self.params.num_passes}",
-            f"Initial pass no. holes: {self.params.init_num_holes}",
-            f"No. holes: {self.params.num_holes}",
-            f"Initial pass hole separation: {self.params.init_separation}",
-            f"Hole separation: {self.params.separation}"
+    def __init__(self, vertices: PointArray, target_initial_hole_separation: float, target_final_hole_separation: float) -> None:
+        
+        # Generate polygon hole sequence
+        polygon_perimeter = vertices.sum_of_distances(wraparound = True)
+        polygon_hole_sequence_plan = plan_polygon_hole_sequence(polygon_perimeter, target_initial_hole_separation, target_final_hole_separation)
+        polygon_holes = generate_polygon_holes(vertices, polygon_hole_sequence_plan.total_num_holes, polygon_hole_sequence_plan.final_hole_separation)
+        segment_hole_sequence_template = generate_segment_hole_sequence_template(polygon_hole_sequence_plan.num_passes)
+        polygon_hole_sequence = generate_polygon_hole_sequence(
+            polygon_holes, segment_hole_sequence_template, polygon_hole_sequence_plan.num_passes, polygon_hole_sequence_plan.initial_num_holes
+        )
+        self.polygon_hole_sequence_plan = polygon_hole_sequence_plan
+        self.polygon_hole_sequence = polygon_hole_sequence
+
+        # Log plan
+        log_lines = [
+            f"No. passes (excluding initial pass): {self.polygon_hole_sequence_plan.num_passes}",
+            f"Initial pass no. holes: {self.polygon_hole_sequence_plan.initial_num_holes}",
+            f"Total no. holes: {self.polygon_hole_sequence_plan.total_num_holes}",
+            f"Initial pass hole separation: {self.polygon_hole_sequence_plan.initial_hole_separation}",
+            f"Final pass hole separation: {self.polygon_hole_sequence_plan.final_hole_separation}"
         ]
-        return "\n".join(lines)
+        self.log("\n".join(log_lines))
     
-    def view_sequence(self, animation_interval_ms: int) -> None:
+    def get_polygon_hole_sequence_plan(self) -> PolygonHoleSequencePlan:
         """
-        Animates the laser machining sequence of this polygon. Each color represents a different pass.
+        Returns the polygon hole sequence plan as an object containing no. passes excluding initial pass, initial and total no. holes, and initial and final hole separations.
         """
-        animate_sequence(self.vertices, self.sequence, animation_interval_ms)
+        return self.polygon_hole_sequence_plan
+
+    def get_polygon_hole_sequence(self) -> list[list[Point]]:
+        """
+        Returns the polygon hole sequence as a list of lists, where each element is a list of Point instances representing holes belonging to a specific machining pass.
+        """
+        return self.polygon_hole_sequence
