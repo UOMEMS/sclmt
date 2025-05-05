@@ -149,7 +149,8 @@ class PolygonHoleSequenceGenerator(Loggable):
     Generates the hole sequence needed to laser machine a single polygon.
     """
     def __init__(self, vertices: PointArray, target_initial_hole_separation: float, target_final_hole_separation: float) -> None:
-        
+        super().__init__()
+
         # Generate polygon hole sequence
         polygon_perimeter = vertices.sum_of_distances(wraparound = True)
         polygon_hole_sequence_plan = plan_polygon_hole_sequence(polygon_perimeter, target_initial_hole_separation, target_final_hole_separation)

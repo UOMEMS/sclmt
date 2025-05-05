@@ -1,20 +1,20 @@
 """
-Module containing the 'LayoutSequencer' class, which generates the laser machining sequence for entire layouts.
+Module containing the 'LayoutToNCPipeline' class, which orchestrates the generation of laser machining numerical control (NC) code from a layout.
 """
 
 from typing import Callable, Any, Self
 from functools import wraps
 import numpy as np
 from numpy.typing import ArrayLike
-from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INIT_SEPARATION, DEFAULT_TARGET_SEPARATION
+from .config import DEFAULT_LENGTH_UNIT, DEFAULT_TARGET_INITIAL_HOLE_SEPARATION, DEFAULT_TARGET_FINAL_HOLE_SEPARATION
 from .points import Point, PointArray
-from .polygon_hole_sequence_generation import PolygonSequencer, PolygonSequencingError
+from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .visualization import plot_polygons, animate_sequence
 from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
 
-class LayoutSequencer:
+class LayoutToNCPipeline:
     """
-    Generates the laser machining sequence for entire layouts.
+    Orchestrates the generation of laser machining numerical control (NC) code from a layout.
     """
 
     # ----------------------------
@@ -25,10 +25,10 @@ class LayoutSequencer:
         self.length_unit: float = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
-        self.target_init_separation: list[float] = None
-        self.target_separation: list[float] = None
-        self.polygon_sequencers: list[PolygonSequencer] = None
-        self.sequence: list[list[Point]] = None
+        self.target_initial_hole_separation: list[float] = None
+        self.target_final_hole_separation: list[float] = None
+        self.polygon_hole_sequence_generators: list[PolygonHoleSequenceGenerator] = None
+        self.layout_hole_sequence: list[list[Point]] = None
 
     def validate_state(attribute_name: str) -> Callable:
         """
@@ -40,8 +40,8 @@ class LayoutSequencer:
                 if getattr(self, attribute_name) is None:
                     error_message_roots = {
                         "polygons_as_vertices" : "Set polygons",
-                        "polygon_sequencers" : "Generate polygon hole sequences",
-                        "sequence" : "Generate sequence"
+                        "polygon_hole_sequence_generators" : "Generate polygon hole sequences",
+                        "layout_hole_sequence" : "Generate sequence"
                     }
                     error_message = error_message_roots[attribute_name] + " before invoking " + method.__name__ + "()"
                     raise RuntimeError(error_message)
@@ -82,8 +82,8 @@ class LayoutSequencer:
             self.polygons_as_vertices.append(PointArray(vertices_ndarray))
         # Set target initial and final pass separation to default
         self.num_polygons = len(self.polygons_as_vertices)
-        self.target_init_separation = [DEFAULT_TARGET_INIT_SEPARATION for _ in range(self.num_polygons)]
-        self.target_separation = [DEFAULT_TARGET_SEPARATION for _ in range(self.num_polygons)]
+        self.target_initial_hole_separation = [DEFAULT_TARGET_INITIAL_HOLE_SEPARATION for _ in range(self.num_polygons)]
+        self.target_final_hole_separation = [DEFAULT_TARGET_FINAL_HOLE_SEPARATION for _ in range(self.num_polygons)]
         return self
 
     def read_file(self, file_reader: FileReader) -> Self:
@@ -159,9 +159,9 @@ class LayoutSequencer:
         else:
             target_separation = [target_separation for _ in range(self.num_polygons)]
         if init_pass:
-            self.target_init_separation = target_separation
+            self.target_initial_hole_separation = target_separation
         else:
-            self.target_separation = target_separation
+            self.target_final_hole_separation = target_separation
         return self
 
     @validate_state('polygons_as_vertices')
@@ -172,34 +172,34 @@ class LayoutSequencer:
         All configurations and layout transformations should be set before calling this method.
         """
         # Try to sequence polygons
-        self.polygon_sequencers = []
+        self.polygon_hole_sequence_generators = []
         for polygon_index in range(self.num_polygons):
             vertices = self.polygons_as_vertices[polygon_index]
-            target_init_separation = self.target_init_separation[polygon_index]
-            target_separation = self.target_separation[polygon_index]
+            target_initial_hole_separation = self.target_initial_hole_separation[polygon_index]
+            target_final_hole_separation = self.target_final_hole_separation[polygon_index]
             try:
-                polygon_sequencer = PolygonSequencer(vertices, target_init_separation, target_separation)
-            except PolygonSequencingError as error:
-                raise ValueError(f"Polygons could not be sequenced\n{error}")
-            self.polygon_sequencers.append(polygon_sequencer)
+                polygon_hole_sequence_generator = PolygonHoleSequenceGenerator(vertices, target_initial_hole_separation, target_final_hole_separation)
+            except PolygonHoleSequencePlanningError as error:
+                raise ValueError(f"Polygon hole sequence could not be generated\n{error}")
+            self.polygon_hole_sequence_generators.append(polygon_hole_sequence_generator)
 
         # Merge polygon hole sequences
-        polygon_hole_sequences = [polygon_sequencer.sequence for polygon_sequencer in self.polygon_sequencers]
-        self.sequence = hole_sequence_merger.get_merged_hole_sequence(polygon_hole_sequences)
+        polygon_hole_sequences = [generator.get_polygon_hole_sequence() for generator in self.polygon_hole_sequence_generators]
+        self.layout_hole_sequence = hole_sequence_merger.get_merged_hole_sequence(polygon_hole_sequences)
         return self
 
     # ----------------------------
     # Numerical control generation
     # ----------------------------
 
-    @validate_state('sequence')
+    @validate_state('layout_hole_sequence')
     def write_file(self, file_writer: FileWriter) -> Self:
         """
         Writes the laser machining sequence of the loaded layout to a file.
         Converts the length unit of hole coordinates to that of the file being written.
         """
         unit_conversion_factor = self.length_unit / file_writer.get_length_unit()
-        for current_pass in self.sequence:
+        for current_pass in self.layout_hole_sequence:
             for point in current_pass:
                 file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
         file_writer.write_file()
@@ -218,15 +218,15 @@ class LayoutSequencer:
         plot_polygons(self.polygons_as_vertices)
         return self
 
-    @validate_state('sequence')
+    @validate_state('layout_hole_sequence')
     def view_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> None:
         """
         Animates the laser machining sequence of the loaded layout. Each color represents a different pass.
         If argument 'individually' is True, each polygon's sequence is shown individually.
         """
         if individually:
-            for polygon_sequencer in self.polygon_sequencers:
-                polygon_sequencer.view_sequence(animation_interval_ms)
+            for (vertices, generator) in zip(self.polygons_as_vertices, self.polygon_hole_sequence_generators):
+                animate_sequence(vertices, generator.get_polygon_hole_sequence(), animation_interval_ms)
         else:
             polygons_as_vertices_merged = PointArray.concatenate(self.polygons_as_vertices)
-            animate_sequence(polygons_as_vertices_merged, self.sequence, animation_interval_ms)
+            animate_sequence(polygons_as_vertices_merged, self.layout_hole_sequence, animation_interval_ms)
