@@ -40,6 +40,28 @@ def plan_polygon_hole_sequence(polygon_perimeter: float, target_initial_hole_sep
     final_hole_separation = polygon_perimeter / total_num_holes
     return PolygonHoleSequencePlan(num_passes, initial_num_holes, total_num_holes, initial_hole_separation, final_hole_separation)
 
+def find_optimal_initial_hole_separation(polygon_perimeter: float, min_initial_hole_separation: float, target_final_hole_separation: float) -> float:
+    """
+    Returns initial hole separation that minimizes difference between actual and target final hole separations.
+    """
+    min_initial_num_holes = 2
+    max_initial_num_holes = int(np.floor(polygon_perimeter / min_initial_hole_separation))
+    if max_initial_num_holes < min_initial_num_holes:
+        raise PolygonHoleSequencePlanningError(f"Minimum initial hole separation ({min_initial_hole_separation}) is too large for polygon perimeter ({polygon_perimeter})")
+    
+    errors = []
+    for initial_num_holes in range(min_initial_num_holes, max_initial_num_holes + 1):
+        initial_hole_separation = polygon_perimeter / initial_num_holes
+        final_hole_separation = plan_polygon_hole_sequence(polygon_perimeter,
+                                                           initial_hole_separation, 
+                                                           target_final_hole_separation).final_hole_separation
+        error = abs(final_hole_separation - target_final_hole_separation)
+        errors.append((error, initial_hole_separation))
+
+    errors.sort()
+    optimal_initial_hole_separation = errors[0][1]
+    return optimal_initial_hole_separation
+
 def generate_polygon_holes(vertices: PointArray, num_points: int, separation: float) -> list[Point]:
     """
     Returns list of Point instances placed equidistantly along a polygon's perimeter, representing the holes to be laser machined.
