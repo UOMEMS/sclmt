@@ -2,13 +2,15 @@
 Module containing the 'AeroBasicFileWriter' class, which writes the laser machining sequence of a layout to an AeroBasic program file.
 """
 
-from .points import Point
 from .interfaces import FileWriter
 
 class AeroBasicFileWriter(FileWriter):
     """
     Writes the laser machining sequence of a layout to an AeroBasic program file.
     """
+
+    # Stage precision is 200 nm = 0.0002 mm → 4 decimal places + 2 for safety
+    COORD_NUM_DIGITS = 6
 
     def __init__(self, filename: str) -> None:
         # Set default stage parameters
@@ -21,7 +23,7 @@ class AeroBasicFileWriter(FileWriter):
         self.pulse_num: int = 3
         self.frequency_Hz: int = 200000
         # Initialize previous hole coordinates
-        self.prev_hole: Point = Point([0, 0])
+        self.prev_hole: tuple[float, float] = (0, 0)
         # Initialize file name and string for hole commands
         self.filename: str = filename
         self.hole_commands: str = ""
@@ -104,24 +106,30 @@ class AeroBasicFileWriter(FileWriter):
         return 1e-3
 
     def add_hole(self, x_coord: float, y_coord: float) -> None:
-        # Apply transition feedrate reduction if enabled and distance is greater than threshold
-        curr_hole = Point([x_coord, y_coord])
-        distance_to_prev_hole = Point.distance_between_points(curr_hole, self.prev_hole)
-        reduce_transition_feedrate = self.transition_feedrate_reduction_enabled and distance_to_prev_hole >= self.transition_feedrate_reduction_distance_threshold_mm
-        transition_feedrate_reduction = f"G63\nF {self.transition_feedrate/self.transition_feedrate_reduction_factor}" if reduce_transition_feedrate else ""
-        transition_feedrate_reset = f"F {self.transition_feedrate}\nG64" if reduce_transition_feedrate else ""
+        prev_x_coord, prev_y_coord = self.prev_hole
+        distance = ((x_coord - prev_x_coord)**2 + (y_coord - prev_y_coord)**2)**0.5
+        should_reduce_feedrate = (
+            self.transition_feedrate_reduction_enabled and
+            distance >= self.transition_feedrate_reduction_distance_threshold_mm
+        )
+        commands = []
         
-        # Stage precision: 200 nm = 0.0002 mm accuracy → 4 decimal places + 2 for safety
-        # Transform coordinates to match stage coordinate system
-        num_digits = 6
-        positioning = f"G1 X {-y_coord:.{num_digits}f} Y {x_coord:.{num_digits}f}"
-        subroutine = "CALL MAKEHOLE"
-        
-        # Construct command string
-        self.hole_commands += transition_feedrate_reduction + "\n" + positioning + "\n" + transition_feedrate_reset + "\n" + subroutine + "\n"
-        
-        # Update previous hole
-        self.prev_hole = curr_hole
+        # Feedrate reduction
+        if should_reduce_feedrate:
+            commands.append(f"G63\nF {self.transition_feedrate/self.transition_feedrate_reduction_factor}")
+
+        # X,Y manipulation needed to match stage coordinate system
+        commands.append(f"G1 X {-y_coord:.{self.COORD_NUM_DIGITS}f} Y {x_coord:.{self.COORD_NUM_DIGITS}f}")
+
+        # Feedrate reset
+        if should_reduce_feedrate:
+            commands.append(f"F {self.transition_feedrate}\nG64")
+
+        # Subroutine to make hole
+        commands.append("CALL MAKEHOLE")
+
+        self.hole_commands += "\n".join(commands) + "\n"
+        self.prev_hole = (x_coord, y_coord)
 
     def write_file(self) -> None:
         with open(self.filename, 'w') as file:
