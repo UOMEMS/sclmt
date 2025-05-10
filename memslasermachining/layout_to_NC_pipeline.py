@@ -6,16 +6,13 @@ from typing import Callable, Any, Self
 from functools import wraps
 import numpy as np
 from numpy.typing import ArrayLike
-from .config import (DEFAULT_LENGTH_UNIT, 
-                     DEFAULT_TARGET_INITIAL_HOLE_SEPARATION, 
-                     DEFAULT_TARGET_FINAL_HOLE_SEPARATION, 
-                     DEFAULT_MIN_INITIAL_HOLE_SEPARATION, 
-                     DEFAULT_AUTO_INITIAL_HOLE_SEPARATION)
+
+from .logging import Loggable
+from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SEPARATION, DEFAULT_TARGET_FINAL_HOLE_SEPARATION
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator, find_optimal_initial_hole_separation
 from .visualization import plot_polygons, animate_sequence
 from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
-from .logging import Loggable
 
 class LayoutToNCPipeline(Loggable):
     """
@@ -31,10 +28,9 @@ class LayoutToNCPipeline(Loggable):
         self.length_unit: float = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
+        self.min_initial_hole_separation: list[float] = None
         self.target_initial_hole_separation: list[float] = None
         self.target_final_hole_separation: list[float] = None
-        self.min_initial_hole_separation: list[float] = None
-        self.auto_initial_hole_separation: bool = None
         self.polygon_hole_sequence_generators: list[PolygonHoleSequenceGenerator] = None
         self.layout_hole_sequence: list[list[Point]] = None
 
@@ -88,10 +84,9 @@ class LayoutToNCPipeline(Loggable):
                 raise ValueError("Input arrays violate [N][2] shape requirement")
             # Convert NDArray of vertices to PointArray before storing
             self.polygons_as_vertices.append(PointArray(vertices_ndarray))
-        # Set target initial and final pass separation to default
+        # Store number of polygons for later convenience
         self.num_polygons = len(self.polygons_as_vertices)
-        # self.target_initial_hole_separation = [DEFAULT_TARGET_INITIAL_HOLE_SEPARATION for _ in range(self.num_polygons)]
-        # self.target_final_hole_separation = [DEFAULT_TARGET_FINAL_HOLE_SEPARATION for _ in range(self.num_polygons)]
+        
         return self
 
     def read_file(self, file_reader: FileReader) -> Self:
@@ -151,72 +146,44 @@ class LayoutToNCPipeline(Loggable):
         return self
 
     # ----------------------------
-    # Hole sequence generation and merging
+    # Hole sequence generation and assembly
     # ----------------------------
-
-    # @validate_state('polygons_as_vertices')
-    # def set_target_separation(self, target_separation: float | list[float], init_pass: bool) -> Self:
-    #     """
-    #     Sets the targeted initial or final pass separation between adjacent hole centers for each polygon (actual values vary due to rounding).
-    #     If argument 'init_pass' is True, the initial separation is set, otherwise, the final separation is set.
-    #     Provide as many values as polygons, or a single value for all polygons.
-    #     """
-    #     if isinstance(target_separation, list):
-    #         if len(target_separation) != self.num_polygons:
-    #             raise ValueError("List of target separations does not match the number of polygons")
-    #     else:
-    #         target_separation = [target_separation for _ in range(self.num_polygons)]
-    #     if init_pass:
-    #         self.target_initial_hole_separation = target_separation
-    #     else:
-    #         self.target_final_hole_separation = target_separation
-    #     return self
 
     @validate_state('polygons_as_vertices')
     def set_hole_separation(self,
-                            target_initial_hole_separation: float | list[float] | None = None,
-                            target_final_hole_separation: float | list[float] | None = None,
                             min_initial_hole_separation: float | list[float] | None = None,
-                            auto_initial_hole_separation: bool | None = None) -> Self:
-
+                            target_initial_hole_separation: float | list[float] | None = None,
+                            target_final_hole_separation: float | list[float] | None = None) -> Self:
         """
-        Sets the targeted initial and final pass separation between adjacent hole centers for each polygon
-        (actual separation varies due to rounding).
+        Sets the minimum initial, target initial, and target final pass hole separation between adjacent hole centers for each polygon.
+        Target and actual hole separation may vary due to rounding.
         
-        If `auto_initial_hole_separation` is True, initial hole separations which are greater than 
-        `min_initial_hole_separation` and that minimize the difference between the actual and target 
-        final hole separation will be automatically used for each polygon.
-
-        Provide as many separation values as polygons, or a single value for all polygons.
+        Only arguments that are provided (i.e., not None) will be used.
+        Each argument can be a single value for all polygons or a list of values for each polygon.
         
-        Note:
-            Only arguments that are provided (i.e., not None) are used.
+        If `min_initial_hole_separation` and `target_final_hole_separation` are not provided, they will be set to the default values 
+        specified in `config.py` when `generate_hole_sequence()` is called. 
 
-            If `target_initial_hole_separation` is provided or was previously set, it takes precedence and 
-            `auto_initial_hole_separation` will have no effect. 
-            
-            To use auto mode, ensure `target_initial_hole_separation` is not set 
-            ValueError raised if both are provided).
+        If `target_initial_hole_separation` is not provided, optimal initial hole separations will be automatically chosen 
+        for each polygon when `generate_hole_sequence()` is called. An optimal initial hole separation is larger than the minimum 
+        initial hole separation, and minimizes the difference between the target and actual final hole separation.
         """
 
-        if target_initial_hole_separation is not None and auto_initial_hole_separation is not None:
-            raise ValueError("Cannot provide both `target_initial_hole_separation` and `auto_initial_hole_separation`")
-
-        def set_instance_variable(attr_name: str, value: any, error_message_root: str) -> None:
+        def set_validated_hole_separation(name: str, value: float | list[float] | None) -> None:
+            # Prevent modification if corresponding argument is None since users can call set_hole_separation() multiple times
             if value is None:
                 return
             if isinstance(value, list):
                 if len(value) != self.num_polygons:
-                    raise ValueError(f"List of {error_message_root} does not match the number of polygons")
+                    natural_name = name.replace("_", " ")
+                    raise ValueError(f"Length of {natural_name} list does not equal the number of polygons")
             else:
                 value = [value for _ in range(self.num_polygons)]
-            setattr(self, attr_name, value)
+            setattr(self, name, value)
         
-        set_instance_variable('target_initial_hole_separation', target_initial_hole_separation, "target initial hole separations")
-        set_instance_variable('target_final_hole_separation', target_final_hole_separation, "target final hole separations")
-        set_instance_variable('min_initial_hole_separation', min_initial_hole_separation, "minimum initial hole separations")
-        if auto_initial_hole_separation is not None:
-            self.auto_initial_hole_separation = auto_initial_hole_separation
+        set_validated_hole_separation('min_initial_hole_separation', min_initial_hole_separation)
+        set_validated_hole_separation('target_initial_hole_separation', target_initial_hole_separation)
+        set_validated_hole_separation('target_final_hole_separation', target_final_hole_separation)
         
         return self
 
@@ -227,29 +194,23 @@ class LayoutToNCPipeline(Loggable):
         Polygon hole sequences are generated separately then merged into a single layout hole sequence according to the provided 'hole_sequence_merger'.
         All configurations and layout transformations should be set before calling this method.
         """
-        # Just-in-time binding of hole separations
-        if self.target_final_hole_separation is None:
-            self.set_hole_separation(target_final_hole_separation = DEFAULT_TARGET_FINAL_HOLE_SEPARATION)
+        # Just-in-time default binding of hole separations
         if self.min_initial_hole_separation is None:
             self.set_hole_separation(min_initial_hole_separation = DEFAULT_MIN_INITIAL_HOLE_SEPARATION)
-        if self.auto_initial_hole_separation is None:
-            self.set_hole_separation(auto_initial_hole_separation = DEFAULT_AUTO_INITIAL_HOLE_SEPARATION)
-        # If auto mode is enabled, find optimal initial hole separation
-        # Else, use default initial hole separation
+        if self.target_final_hole_separation is None:
+            self.set_hole_separation(target_final_hole_separation = DEFAULT_TARGET_FINAL_HOLE_SEPARATION)
         if self.target_initial_hole_separation is None:
-            if self.auto_initial_hole_separation:
-                self.target_initial_hole_separation = []
-                for polygon_index in range(self.num_polygons):
-                    try:
-                        args = (self.polygons_as_vertices[polygon_index].sum_of_distances(wraparound=True),
-                                self.min_initial_hole_separation[polygon_index],
-                                self.target_final_hole_separation[polygon_index])
-                        optimal_initial_hole_separation = find_optimal_initial_hole_separation(*args)
-                    except PolygonHoleSequencePlanningError as error:
-                        raise ValueError(f"Optimal initial hole separation could not be found for polygon {polygon_index + 1}\n{error}")
-                    self.target_initial_hole_separation.append(optimal_initial_hole_separation)
-            else:
-                self.set_hole_separation(target_initial_hole_separation = DEFAULT_TARGET_INITIAL_HOLE_SEPARATION)
+            optimal_initial_hole_separation = []
+            for polygon_index in range(self.num_polygons):
+                try:
+                    polygon_perimeter = self.polygons_as_vertices[polygon_index].sum_of_distances(wraparound=True)
+                    args = (polygon_perimeter,
+                            self.min_initial_hole_separation[polygon_index],
+                            self.target_final_hole_separation[polygon_index])
+                    optimal_initial_hole_separation.append(find_optimal_initial_hole_separation(*args))
+                except PolygonHoleSequencePlanningError as error:
+                    raise ValueError(f"Optimal initial hole separation could not be found for polygon {polygon_index + 1}\n{error}")
+            self.set_hole_separation(target_initial_hole_separation = optimal_initial_hole_separation)
         
         # Try to sequence polygons
         self.polygon_hole_sequence_generators = []
