@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike
 from .logging import Loggable
 from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SEPARATION, DEFAULT_TARGET_FINAL_HOLE_SEPARATION
 from .points import Point, PointArray
-from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator, find_optimal_initial_hole_separation
+from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .visualization import plot_polygons, animate_sequence
 from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
 
@@ -195,33 +195,26 @@ class LayoutToNCPipeline(Loggable):
         All configurations and layout transformations should be set before calling this method.
         """
         # Just-in-time default binding of hole separations
+        # If target_initial_hole_separation is None, optimal initial hole separation will be found in PHSG
         if self.min_initial_hole_separation is None:
             self.set_hole_separation(min_initial_hole_separation = DEFAULT_MIN_INITIAL_HOLE_SEPARATION)
+        if self.target_initial_hole_separation is None:
+            self.target_initial_hole_separation = [None for _ in range(self.num_polygons)]
         if self.target_final_hole_separation is None:
             self.set_hole_separation(target_final_hole_separation = DEFAULT_TARGET_FINAL_HOLE_SEPARATION)
-        if self.target_initial_hole_separation is None:
-            optimal_initial_hole_separation = []
-            for polygon_index in range(self.num_polygons):
-                try:
-                    polygon_perimeter = self.polygons_as_vertices[polygon_index].sum_of_distances(wraparound=True)
-                    args = (polygon_perimeter,
-                            self.min_initial_hole_separation[polygon_index],
-                            self.target_final_hole_separation[polygon_index])
-                    optimal_initial_hole_separation.append(find_optimal_initial_hole_separation(*args))
-                except PolygonHoleSequencePlanningError as error:
-                    raise ValueError(f"Optimal initial hole separation could not be found for polygon {polygon_index + 1}\n{error}")
-            self.set_hole_separation(target_initial_hole_separation = optimal_initial_hole_separation)
         
         # Try to sequence polygons
         self.polygon_hole_sequence_generators = []
         for polygon_index in range(self.num_polygons):
             vertices = self.polygons_as_vertices[polygon_index]
+            min_initial_hole_separation = self.min_initial_hole_separation[polygon_index]
             target_initial_hole_separation = self.target_initial_hole_separation[polygon_index]
             target_final_hole_separation = self.target_final_hole_separation[polygon_index]
             try:
-                polygon_hole_sequence_generator = PolygonHoleSequenceGenerator(vertices, target_initial_hole_separation, target_final_hole_separation)
+                args = (vertices, min_initial_hole_separation, target_initial_hole_separation, target_final_hole_separation)
+                polygon_hole_sequence_generator = PolygonHoleSequenceGenerator(*args)
             except PolygonHoleSequencePlanningError as error:
-                raise ValueError(f"Polygon hole sequence could not be generated\n{error}")
+                raise ValueError(f"Polygon hole sequence could not be generated for polygon {polygon_index + 1}\n{error}")
             self.polygon_hole_sequence_generators.append(polygon_hole_sequence_generator)
 
         # Merge polygon hole sequences

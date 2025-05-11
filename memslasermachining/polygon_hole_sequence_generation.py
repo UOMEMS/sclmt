@@ -2,65 +2,65 @@
 Module containing the 'PolygonHoleSequenceGenerator' class, which generates the hole sequence needed to laser machine a single polygon.
 """
 
-from dataclasses import dataclass
 import numpy as np
 from .points import Point, PointArray
 from .logging import Loggable
 
-@dataclass
-class PolygonHoleSequencePlan:
-    num_passes: int
-    initial_num_holes: int
-    total_num_holes: int
-    initial_hole_separation: float
-    final_hole_separation: float
-
 class PolygonHoleSequencePlanningError(Exception):
     pass
 
-def plan_polygon_hole_sequence(polygon_perimeter: float, target_initial_hole_separation: float, target_final_hole_separation: float) -> PolygonHoleSequencePlan:
+class PolygonHoleSequencePlan:
     """
-    Returns object containing no. passes excluding initial pass, initial and total no. holes, and initial and final hole separations needed to laser machine a polygon.
+    Calculates and stores values needed to generate a polygon hole sequence:
+    - No. passes excluding initial pass
+    - Initial and total no. holes
+    - Initial and final hole separations
+    """
+
+    def __init__(self, polygon_perimeter: float, initial_num_holes: int, target_final_hole_separation: float): 
+        self.num_passes = round(np.log2(polygon_perimeter / (initial_num_holes * target_final_hole_separation)))
+        self.initial_num_holes = initial_num_holes
+        self.total_num_holes = initial_num_holes * 2**self.num_passes
+        self.initial_hole_separation = polygon_perimeter / initial_num_holes
+        self.final_hole_separation = polygon_perimeter / self.total_num_holes
+
+def plan_polygon_hole_sequence(polygon_perimeter: float,
+                               min_initial_hole_separation: float,
+                               target_initial_hole_separation: float | None,
+                               target_final_hole_separation: float) -> PolygonHoleSequencePlan:
+    """
+    Returns object containing values needed to generate a polygon hole sequence.
+    If `target_initial_hole_separation` is not provided, the optimal initial hole separation is found using `min_initial_hole_separation`.
     Raises 'PolygonHoleSequencePlanningError' if input is invalid.
     """
     
-    # Validate input
-    if target_initial_hole_separation <= target_final_hole_separation:
-        raise PolygonHoleSequencePlanningError(f"Target initial hole separation ({target_initial_hole_separation}) must be larger than target final hole separation ({target_final_hole_separation})")
-    if target_initial_hole_separation >= polygon_perimeter:
-        raise PolygonHoleSequencePlanningError(f"Target initial hole separation ({target_initial_hole_separation}) must be smaller than polygon perimeter ({polygon_perimeter})")
-    initial_num_holes = round(polygon_perimeter / target_initial_hole_separation)
-    if initial_num_holes < 2:
-        raise PolygonHoleSequencePlanningError(f"Target initial hole separation ({target_initial_hole_separation}) yielded less than 2 initial holes")
-    
-    # Generate plan
-    num_passes = round(np.log2(polygon_perimeter / (initial_num_holes * target_final_hole_separation)))
-    total_num_holes = initial_num_holes * 2**num_passes
-    initial_hole_separation = polygon_perimeter / initial_num_holes
-    final_hole_separation = polygon_perimeter / total_num_holes
-    return PolygonHoleSequencePlan(num_passes, initial_num_holes, total_num_holes, initial_hole_separation, final_hole_separation)
+    # Initial hole separation is defined only if there are at least 2 initial holes
+    MIN_INITIAL_NUM_HOLES = 2
 
-def find_optimal_initial_hole_separation(polygon_perimeter: float, min_initial_hole_separation: float, target_final_hole_separation: float) -> float:
-    """
-    Returns initial hole separation that minimizes difference between actual and target final hole separations.
-    """
-    min_initial_num_holes = 2
+    # Input validation helper
+    def validate(initial_hole_separation: float, initial_hole_separation_name: str, initial_num_holes: int) -> None:
+        if initial_hole_separation <= target_final_hole_separation:
+            error_message = f"{initial_hole_separation_name} ({initial_hole_separation}) must be larger than target final hole separation ({target_final_hole_separation})"
+            raise PolygonHoleSequencePlanningError(error_message)
+        if initial_num_holes < MIN_INITIAL_NUM_HOLES:
+            error_message = f"{initial_hole_separation_name} ({initial_hole_separation}) is too large for polygon perimeter ({polygon_perimeter}); yielded less than {MIN_INITIAL_NUM_HOLES} initial holes"
+            raise PolygonHoleSequencePlanningError(error_message)
+
+    # Use target initial hole separation if provided
+    if target_initial_hole_separation is not None:
+        initial_num_holes = round(polygon_perimeter / target_initial_hole_separation)
+        validate(target_initial_hole_separation, "Target initial hole separation", initial_num_holes)
+        return PolygonHoleSequencePlan(polygon_perimeter, initial_num_holes, target_final_hole_separation)
+
+    # Find plan with optimal initial hole separation
     max_initial_num_holes = int(np.floor(polygon_perimeter / min_initial_hole_separation))
-    if max_initial_num_holes < min_initial_num_holes:
-        raise PolygonHoleSequencePlanningError(f"Minimum initial hole separation ({min_initial_hole_separation}) is too large for polygon perimeter ({polygon_perimeter})")
-    
-    errors = []
-    for initial_num_holes in range(min_initial_num_holes, max_initial_num_holes + 1):
-        initial_hole_separation = polygon_perimeter / initial_num_holes
-        final_hole_separation = plan_polygon_hole_sequence(polygon_perimeter,
-                                                           initial_hole_separation, 
-                                                           target_final_hole_separation).final_hole_separation
-        error = abs(final_hole_separation - target_final_hole_separation)
-        errors.append((error, initial_hole_separation))
-
-    errors.sort()
-    optimal_initial_hole_separation = errors[0][1]
-    return optimal_initial_hole_separation
+    validate(min_initial_hole_separation, "Could not find optimal initial separation since min initial hole separation", max_initial_num_holes)
+    plans = [
+        PolygonHoleSequencePlan(polygon_perimeter, initial_num_holes, target_final_hole_separation)
+        for initial_num_holes in range(MIN_INITIAL_NUM_HOLES, max_initial_num_holes + 1)
+    ]
+    optimal_plan = min(plans, key = lambda plan: abs(target_final_hole_separation - plan.final_hole_separation))
+    return optimal_plan
 
 def generate_polygon_holes(vertices: PointArray, num_points: int, separation: float) -> list[Point]:
     """
@@ -170,12 +170,17 @@ class PolygonHoleSequenceGenerator(Loggable):
     """
     Generates the hole sequence needed to laser machine a single polygon.
     """
-    def __init__(self, vertices: PointArray, target_initial_hole_separation: float, target_final_hole_separation: float) -> None:
+    def __init__(self,
+                 vertices: PointArray,
+                 min_initial_hole_separation: float,
+                 target_initial_hole_separation: float | None,
+                 target_final_hole_separation: float) -> None:
+        # Initialize logging
         super().__init__()
 
         # Generate polygon hole sequence
         polygon_perimeter = vertices.sum_of_distances(wraparound = True)
-        polygon_hole_sequence_plan = plan_polygon_hole_sequence(polygon_perimeter, target_initial_hole_separation, target_final_hole_separation)
+        polygon_hole_sequence_plan = plan_polygon_hole_sequence(polygon_perimeter, min_initial_hole_separation, target_initial_hole_separation, target_final_hole_separation)
         polygon_holes = generate_polygon_holes(vertices, polygon_hole_sequence_plan.total_num_holes, polygon_hole_sequence_plan.final_hole_separation)
         segment_hole_sequence_template = generate_segment_hole_sequence_template(polygon_hole_sequence_plan.num_passes)
         polygon_hole_sequence = generate_polygon_hole_sequence(
