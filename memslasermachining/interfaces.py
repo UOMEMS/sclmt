@@ -73,16 +73,16 @@ class LayoutAligner(ABC):
         """
         pass
 
-class HoleSequenceMerger(ABC):
+class LayoutHoleSequenceAssembler(ABC):
     """
-    Used to merge multiple hole sequences into a single hole sequence.
+    Used to assemble polygon hole sequences into a single layout-wide sequence.
     """
 
     @abstractmethod
-    def get_merged_hole_sequence(self, hole_sequences: list[list[list[Point]]]) -> list[list[Point]]:
+    def get_layout_hole_sequence(self, polygon_hole_sequences: list[list[list[Point]]]) -> list[list[Point]]:
         """
-        Returns the merged hole sequence.
-        Argument `hole_sequences` is a list of hole sequences.
+        Returns a layout hole sequence assembled from the given polygon hole sequences.
+        Argument `polygon_hole_sequences` is a list of hole sequences.
         Each hole sequence is a list of passes.
         Each pass is a list of holes.
         Each hole is represented as a Point instance.

@@ -12,7 +12,7 @@ from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SEPARATION, DE
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .visualization import plot_polygons, animate_sequence
-from .interfaces import FileReader, LayoutAligner, HoleSequenceMerger, FileWriter
+from .interfaces import FileReader, LayoutAligner, LayoutHoleSequenceAssembler, FileWriter
 
 class LayoutToNCPipeline(Loggable):
     """
@@ -188,10 +188,10 @@ class LayoutToNCPipeline(Loggable):
         return self
 
     @validate_state('polygons_as_vertices')
-    def generate_layout_hole_sequence(self, hole_sequence_merger: HoleSequenceMerger) -> Self:
+    def generate_hole_sequence(self, layout_hole_sequence_assembler: LayoutHoleSequenceAssembler) -> Self:
         """
-        Generates the hole sequence needed to laser machine the loaded layout.
-        Polygon hole sequences are generated separately then merged into a single layout hole sequence according to the provided 'hole_sequence_merger'.
+        Generates the hole sequence used to laser machine the loaded layout.
+        Polygon hole sequences are generated separately then assembled into a single layout-wide sequence according to the provided 'layout_hole_sequence_assembler'.
         All configurations and layout transformations should be set before calling this method.
         """
         # Just-in-time default binding of hole separations
@@ -217,9 +217,9 @@ class LayoutToNCPipeline(Loggable):
                 raise ValueError(f"Polygon hole sequence could not be generated for polygon {polygon_index + 1}\n{error}")
             self.polygon_hole_sequence_generators.append(polygon_hole_sequence_generator)
 
-        # Merge polygon hole sequences
+        # Assemble polygon hole sequences
         polygon_hole_sequences = [generator.get_polygon_hole_sequence() for generator in self.polygon_hole_sequence_generators]
-        self.layout_hole_sequence = hole_sequence_merger.get_merged_hole_sequence(polygon_hole_sequences)
+        self.layout_hole_sequence = layout_hole_sequence_assembler.get_layout_hole_sequence(polygon_hole_sequences)
 
         # Log polygon hole sequence plans
         for polygon_index in range(self.num_polygons):
