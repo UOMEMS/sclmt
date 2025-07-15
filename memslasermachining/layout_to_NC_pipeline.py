@@ -12,7 +12,7 @@ from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SEPARATION, DE
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .visualization import plot_polygons, animate_sequence
-from .interfaces import FileReader, LayoutAligner, LayoutHoleSequenceAssembler, FileWriter
+from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, FileWriter
 
 class LayoutToNCPipeline(Loggable):
     """
@@ -89,13 +89,13 @@ class LayoutToNCPipeline(Loggable):
         
         return self
 
-    def read_file(self, file_reader: FileReader) -> Self:
+    def read_layout_file(self, layout_file_reader: LayoutFileReader) -> Self:
         """
         Sets the layout to be laser machined from the contents of a file.
         Adopts the length unit of the file being read.
         """
-        self.set_length_unit(file_reader.get_length_unit())
-        self.set_polygons(file_reader.get_polygons_as_vertices())
+        self.set_length_unit(layout_file_reader.get_length_unit())
+        self.set_polygons(layout_file_reader.get_polygons_as_vertices())
         return self
 
     # ----------------------------

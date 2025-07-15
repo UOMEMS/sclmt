@@ -4,9 +4,9 @@ Module containing the 'GDSFileReader' class, which reads the layout to be laser 
 
 from numpy.typing import ArrayLike
 import gdspy
-from .interfaces import FileReader
+from .interfaces import LayoutFileReader
 
-class GDSFileReader(FileReader):
+class GDSFileReader(LayoutFileReader):
     """
     Reads the layout to be laser machined from a GDS file.
     """
@@ -30,12 +30,6 @@ class GDSFileReader(FileReader):
         # Get polygon vertices
         # Assume each polygon is on layer 0 and has a unique datatype
         self.polygons_as_vertices = [polygons_dict[key][0] for key in sorted(polygons_dict) if key[0] == 0]
-
-    def view_layout(self) -> None:
-        """
-        Displays the layout in the GDS file being read.
-        """
-        gdspy.LayoutViewer(self.gds_lib)
 
     def get_length_unit(self) -> float:
         return self.gds_lib.unit

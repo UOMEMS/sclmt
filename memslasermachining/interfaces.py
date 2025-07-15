@@ -1,5 +1,5 @@
 """
-Module containing interfaces (abstract classes) for reading files, aligning layouts, and writing files.
+Module containing interfaces (abstract classes) for reading files, aligning layouts, assembling layout hole sequences, and writing files.
 """
 
 from abc import ABC, abstractmethod
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from numpy.typing import ArrayLike
 from .points import Point
 
-class FileReader(ABC):
+class LayoutFileReader(ABC):
     """
     Used to set the layout to be laser machined from the contents of a file.
     """
@@ -15,7 +15,7 @@ class FileReader(ABC):
     @abstractmethod
     def get_length_unit(self) -> float:
         """
-        Returns length unit (scaling factor with respect to meters) used by the file being read.
+        Returns length unit used by the file being read as a scaling factor with respect to meters.
         """
         pass
     
@@ -97,7 +97,7 @@ class FileWriter(ABC):
     @abstractmethod
     def get_length_unit(self) -> float:
         """
-        Returns length unit (scaling factor with respect to meters) used by the file being written.
+        Returns length unit used by the file being written as a scaling factor with respect to meters.
         """
         pass
     
