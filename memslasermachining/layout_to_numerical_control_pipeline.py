@@ -1,5 +1,5 @@
 """
-Module containing the 'LayoutToNCPipeline' class, which orchestrates the generation of laser machining numerical control (NC) code from a layout.
+Module containing the 'LayoutToNumericalControlPipeline' class, which orchestrates the generation of laser machining numerical control code from a layout.
 """
 
 from typing import Callable, Any, Self
@@ -14,9 +14,9 @@ from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, 
 from .visualization import plot_polygons, animate_sequence
 from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, NumericalControlFileWriter
 
-class LayoutToNCPipeline(Loggable):
+class LayoutToNumericalControlPipeline(Loggable):
     """
-    Orchestrates the generation of laser machining numerical control (NC) code from a layout.
+    Orchestrates the generation of laser machining numerical control code from a layout.
     """
 
     # ----------------------------
@@ -44,8 +44,7 @@ class LayoutToNCPipeline(Loggable):
                 if getattr(self, attribute_name) is None:
                     error_message_roots = {
                         "polygons_as_vertices" : "Set polygons",
-                        "polygon_hole_sequence_generators" : "Generate polygon hole sequences",
-                        "layout_hole_sequence" : "Generate sequence"
+                        "layout_hole_sequence" : "Generate hole sequence"
                     }
                     error_message = error_message_roots[attribute_name] + " before invoking " + method.__name__ + "()"
                     raise RuntimeError(error_message)
@@ -261,7 +260,7 @@ class LayoutToNCPipeline(Loggable):
         return self
 
     @validate_state('layout_hole_sequence')
-    def view_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> None:
+    def view_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> Self:
         """
         Animates the laser machining sequence of the loaded layout. Each color represents a different pass.
         If argument 'individually' is True, each polygon's sequence is shown individually.
@@ -272,3 +271,4 @@ class LayoutToNCPipeline(Loggable):
         else:
             polygons_as_vertices_merged = PointArray.concatenate(self.polygons_as_vertices)
             animate_sequence(polygons_as_vertices_merged, self.layout_hole_sequence, animation_interval_ms)
+        return self
