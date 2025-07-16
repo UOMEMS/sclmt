@@ -1,5 +1,5 @@
 """
-Module containing interfaces (abstract classes) for reading files, aligning layouts, assembling layout hole sequences, and writing files.
+Module containing interfaces (abstract classes) for reading layout files, aligning layouts, assembling layout hole sequences, and writing numerical control files.
 """
 
 from abc import ABC, abstractmethod
@@ -89,9 +89,9 @@ class LayoutHoleSequenceAssembler(ABC):
         """
         pass
 
-class FileWriter(ABC):
+class NumericalControlFileWriter(ABC):
     """
-    Used to write the laser machining sequence of a layout to a file.
+    Used to write a layout hole sequence to a numerical control file.
     """
 
     @abstractmethod
@@ -102,17 +102,19 @@ class FileWriter(ABC):
         pass
     
     @abstractmethod
-    def add_hole(self, x_coord: float, y_coord: float) -> None:
+    def add_hole(self, x: float, y: float) -> None:
         """
-        Adds the content associated with a laser-machined hole to the file's contents.
-        This method does not write to the file directly but modifies the in-memory contents that will be written in a later step. 
+        Adds the commands required to create a hole at the provided X-Y coordinates to the numerical control program.
         Coordinates are provided in the file's length unit.
+
+        This method appends commands to a buffer (e.g., string instance variable).
+        The actual file is only written when write_file() is called.
         """
         pass
     
     @abstractmethod
     def write_file(self) -> None:
         """
-        Writes this instance's in-memory contents to a file.
+        Writes the numerical control program to a file.
         """
         pass

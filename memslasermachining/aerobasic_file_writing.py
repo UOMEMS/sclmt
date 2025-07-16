@@ -1,10 +1,10 @@
 """
-Module containing the 'AeroBasicFileWriter' class, which writes the laser machining sequence of a layout to an AeroBasic program file.
+Module containing the 'AeroBasicFileWriter' class, which writes a layout hole sequence to an AeroBasic program file.
 """
 
-from .interfaces import FileWriter
+from .interfaces import NumericalControlFileWriter
 
-class AeroBasicFileWriter(FileWriter):
+class AeroBasicFileWriter(NumericalControlFileWriter):
     """
     Writes the laser machining sequence of a layout to an AeroBasic program file.
     """
@@ -105,9 +105,9 @@ class AeroBasicFileWriter(FileWriter):
     def get_length_unit(self) -> float:
         return 1e-3
 
-    def add_hole(self, x_coord: float, y_coord: float) -> None:
-        prev_x_coord, prev_y_coord = self.prev_hole
-        distance = ((x_coord - prev_x_coord)**2 + (y_coord - prev_y_coord)**2)**0.5
+    def add_hole(self, x: float, y: float) -> None:
+        prev_x, prev_y = self.prev_hole
+        distance = ((x - prev_x)**2 + (y - prev_y)**2)**0.5
         should_reduce_feedrate = (
             self.transition_feedrate_reduction_enabled and
             distance >= self.transition_feedrate_reduction_distance_threshold_mm
@@ -119,7 +119,7 @@ class AeroBasicFileWriter(FileWriter):
             commands.append(f"G63\nF {self.transition_feedrate/self.transition_feedrate_reduction_factor}")
 
         # X,Y manipulation needed to match stage coordinate system
-        commands.append(f"G1 X {-y_coord:.{self.COORD_NUM_DIGITS}f} Y {x_coord:.{self.COORD_NUM_DIGITS}f}")
+        commands.append(f"G1 X {-y:.{self.COORD_NUM_DIGITS}f} Y {x:.{self.COORD_NUM_DIGITS}f}")
 
         # Feedrate reset
         if should_reduce_feedrate:
@@ -129,7 +129,7 @@ class AeroBasicFileWriter(FileWriter):
         commands.append("CALL MAKEHOLE")
 
         self.hole_commands += "\n".join(commands) + "\n"
-        self.prev_hole = (x_coord, y_coord)
+        self.prev_hole = (x, y)
 
     def write_file(self) -> None:
         with open(self.filename, 'w') as file:

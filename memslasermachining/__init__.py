@@ -1,5 +1,5 @@
 from .layout_to_NC_pipeline import LayoutToNCPipeline
-from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, FileWriter
+from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, NumericalControlFileWriter
 from .gds_file_reading import GDSFileReader
 from .square_membrane_layout_alignment import SquareMembraneLayoutAligner
 from .layout_hole_sequence_assembly import SequentialLayoutHoleSequenceAssembler, InterleavedLayoutHoleSequenceAssembler
@@ -10,7 +10,7 @@ __all__ = [
     'LayoutFileReader',
     'LayoutAligner',
     'LayoutHoleSequenceAssembler',
-    'FileWriter',
+    'NumericalControlFileWriter',
     'GDSFileReader',
     'SquareMembraneLayoutAligner',
     'SequentialLayoutHoleSequenceAssembler',

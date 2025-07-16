@@ -12,7 +12,7 @@ from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SEPARATION, DE
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .visualization import plot_polygons, animate_sequence
-from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, FileWriter
+from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, NumericalControlFileWriter
 
 class LayoutToNCPipeline(Loggable):
     """
@@ -235,16 +235,16 @@ class LayoutToNCPipeline(Loggable):
     # ----------------------------
 
     @validate_state('layout_hole_sequence')
-    def write_file(self, file_writer: FileWriter) -> Self:
+    def write_numerical_control_file(self, numerical_control_file_writer: NumericalControlFileWriter) -> Self:
         """
-        Writes the laser machining sequence of the loaded layout to a file.
+        Writes the hole sequence for the loaded layout to a numerical control file.
         Converts the length unit of hole coordinates to that of the file being written.
         """
-        unit_conversion_factor = self.length_unit / file_writer.get_length_unit()
+        unit_conversion_factor = self.length_unit / numerical_control_file_writer.get_length_unit()
         for current_pass in self.layout_hole_sequence:
             for point in current_pass:
-                file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
-        file_writer.write_file()
+                numerical_control_file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
+        numerical_control_file_writer.write_file()
         return self
 
     # ----------------------------
