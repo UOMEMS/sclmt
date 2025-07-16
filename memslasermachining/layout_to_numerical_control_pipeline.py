@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .logging import Loggable
-from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SEPARATION, DEFAULT_TARGET_FINAL_HOLE_SEPARATION
+from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SPACING, DEFAULT_TARGET_FINAL_HOLE_SPACING
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .visualization import plot_polygons, animate_sequence
@@ -28,9 +28,9 @@ class LayoutToNumericalControlPipeline(Loggable):
         self.length_unit: float = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
-        self.min_initial_hole_separation: list[float] = None
-        self.target_initial_hole_separation: list[float] = None
-        self.target_final_hole_separation: list[float] = None
+        self.min_initial_hole_spacing: list[float] = None
+        self.target_initial_hole_spacing: list[float] = None
+        self.target_final_hole_spacing: list[float] = None
         self.polygon_hole_sequence_generators: list[PolygonHoleSequenceGenerator] = None
         self.layout_hole_sequence: list[list[Point]] = None
 
@@ -149,27 +149,27 @@ class LayoutToNumericalControlPipeline(Loggable):
     # ----------------------------
 
     @validate_state('polygons_as_vertices')
-    def set_hole_separation(self,
-                            min_initial_hole_separation: float | list[float] | None = None,
-                            target_initial_hole_separation: float | list[float] | None = None,
-                            target_final_hole_separation: float | list[float] | None = None) -> Self:
+    def set_hole_spacing(self,
+                            min_initial_hole_spacing: float | list[float] | None = None,
+                            target_initial_hole_spacing: float | list[float] | None = None,
+                            target_final_hole_spacing: float | list[float] | None = None) -> Self:
         """
-        Sets the minimum initial, target initial, and target final pass hole separation between adjacent hole centers for each polygon.
-        Target and actual hole separation may vary due to rounding.
+        Sets the minimum initial, target initial, and target final pass hole spacings between adjacent hole centers for each polygon.
+        Target and actual hole spacing may vary due to rounding.
         
         Only arguments that are provided (i.e., not None) will be used.
         Each argument can be a single value for all polygons or a list of values for each polygon.
         
-        If `min_initial_hole_separation` and `target_final_hole_separation` are not provided, they will be set to the default values 
+        If `min_initial_hole_spacing` and `target_final_hole_spacing` are not provided, they will be set to the default values 
         specified in `config.py` when `generate_hole_sequence()` is called. 
 
-        If `target_initial_hole_separation` is not provided, optimal initial hole separations will be automatically chosen 
-        for each polygon when `generate_hole_sequence()` is called. An optimal initial hole separation is larger than the minimum 
-        initial hole separation, and minimizes the difference between the target and actual final hole separation.
+        If `target_initial_hole_spacing` is not provided, optimal initial hole spacings will be automatically chosen 
+        for each polygon when `generate_hole_sequence()` is called. An optimal initial hole spacing is larger than the minimum 
+        initial hole spacing, and minimizes the difference between the target and actual final hole spacing.
         """
 
-        def set_validated_hole_separation(name: str, value: float | list[float] | None) -> None:
-            # Prevent modification if corresponding argument is None since users can call set_hole_separation() multiple times
+        def set_validated_hole_spacing(name: str, value: float | list[float] | None) -> None:
+            # Prevent modification if corresponding argument is None since users can call set_hole_spacing() multiple times
             if value is None:
                 return
             if isinstance(value, list):
@@ -180,9 +180,9 @@ class LayoutToNumericalControlPipeline(Loggable):
                 value = [value for _ in range(self.num_polygons)]
             setattr(self, name, value)
         
-        set_validated_hole_separation('min_initial_hole_separation', min_initial_hole_separation)
-        set_validated_hole_separation('target_initial_hole_separation', target_initial_hole_separation)
-        set_validated_hole_separation('target_final_hole_separation', target_final_hole_separation)
+        set_validated_hole_spacing('min_initial_hole_spacing', min_initial_hole_spacing)
+        set_validated_hole_spacing('target_initial_hole_spacing', target_initial_hole_spacing)
+        set_validated_hole_spacing('target_final_hole_spacing', target_final_hole_spacing)
         
         return self
 
@@ -193,24 +193,24 @@ class LayoutToNumericalControlPipeline(Loggable):
         Polygon hole sequences are generated separately then assembled into a single layout-wide sequence according to the provided 'layout_hole_sequence_assembler'.
         All configurations and layout transformations should be set before calling this method.
         """
-        # Just-in-time default binding of hole separations
-        # If target_initial_hole_separation is None, optimal initial hole separation will be found in PHSG
-        if self.min_initial_hole_separation is None:
-            self.set_hole_separation(min_initial_hole_separation = DEFAULT_MIN_INITIAL_HOLE_SEPARATION)
-        if self.target_initial_hole_separation is None:
-            self.target_initial_hole_separation = [None for _ in range(self.num_polygons)]
-        if self.target_final_hole_separation is None:
-            self.set_hole_separation(target_final_hole_separation = DEFAULT_TARGET_FINAL_HOLE_SEPARATION)
+        # Just-in-time default binding of hole spacings
+        # If target_initial_hole_spacing is None, optimal initial hole spacing will be found in PHSG
+        if self.min_initial_hole_spacing is None:
+            self.set_hole_spacing(min_initial_hole_spacing = DEFAULT_MIN_INITIAL_HOLE_SPACING)
+        if self.target_initial_hole_spacing is None:
+            self.target_initial_hole_spacing = [None for _ in range(self.num_polygons)]
+        if self.target_final_hole_spacing is None:
+            self.set_hole_spacing(target_final_hole_spacing = DEFAULT_TARGET_FINAL_HOLE_SPACING)
         
         # Try to sequence polygons
         self.polygon_hole_sequence_generators = []
         for polygon_index in range(self.num_polygons):
             vertices = self.polygons_as_vertices[polygon_index]
-            min_initial_hole_separation = self.min_initial_hole_separation[polygon_index]
-            target_initial_hole_separation = self.target_initial_hole_separation[polygon_index]
-            target_final_hole_separation = self.target_final_hole_separation[polygon_index]
+            min_initial_hole_spacing = self.min_initial_hole_spacing[polygon_index]
+            target_initial_hole_spacing = self.target_initial_hole_spacing[polygon_index]
+            target_final_hole_spacing = self.target_final_hole_spacing[polygon_index]
             try:
-                args = (vertices, min_initial_hole_separation, target_initial_hole_separation, target_final_hole_separation)
+                args = (vertices, min_initial_hole_spacing, target_initial_hole_spacing, target_final_hole_spacing)
                 polygon_hole_sequence_generator = PolygonHoleSequenceGenerator(*args)
             except PolygonHoleSequencePlanningError as error:
                 raise ValueError(f"Polygon hole sequence could not be generated for polygon {polygon_index + 1}\n{error}")
@@ -223,8 +223,8 @@ class LayoutToNumericalControlPipeline(Loggable):
         # Log polygon hole sequence plans
         for polygon_index in range(self.num_polygons):
             self.log(f"***Polygon {polygon_index + 1}***")
-            self.log(f"Target initial hole separation: {self.target_initial_hole_separation[polygon_index]}")
-            self.log(f"Target final hole separation: {self.target_final_hole_separation[polygon_index]}")
+            self.log(f"Target initial hole spacing: {self.target_initial_hole_spacing[polygon_index]}")
+            self.log(f"Target final hole spacing: {self.target_final_hole_spacing[polygon_index]}")
             self.log(self.polygon_hole_sequence_generators[polygon_index].get_log())
 
         return self
@@ -260,7 +260,7 @@ class LayoutToNumericalControlPipeline(Loggable):
         return self
 
     @validate_state('layout_hole_sequence')
-    def view_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> Self:
+    def view_hole_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> Self:
         """
         Animates the laser machining sequence of the loaded layout. Each color represents a different pass.
         If argument 'individually' is True, each polygon's sequence is shown individually.

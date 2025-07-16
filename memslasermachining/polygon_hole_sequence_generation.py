@@ -14,55 +14,55 @@ class PolygonHoleSequencePlan:
     Calculates and stores values needed to generate a polygon hole sequence:
     - No. passes excluding initial pass
     - Initial and total no. holes
-    - Initial and final hole separations
+    - Initial and final hole spacings
     """
 
-    def __init__(self, polygon_perimeter: float, initial_num_holes: int, target_final_hole_separation: float): 
-        self.num_passes = round(np.log2(polygon_perimeter / (initial_num_holes * target_final_hole_separation)))
+    def __init__(self, polygon_perimeter: float, initial_num_holes: int, target_final_hole_spacing: float): 
+        self.num_passes = round(np.log2(polygon_perimeter / (initial_num_holes * target_final_hole_spacing)))
         self.initial_num_holes = initial_num_holes
         self.total_num_holes = initial_num_holes * 2**self.num_passes
-        self.initial_hole_separation = polygon_perimeter / initial_num_holes
-        self.final_hole_separation = polygon_perimeter / self.total_num_holes
+        self.initial_hole_spacing = polygon_perimeter / initial_num_holes
+        self.final_hole_spacing = polygon_perimeter / self.total_num_holes
 
 def plan_polygon_hole_sequence(polygon_perimeter: float,
-                               min_initial_hole_separation: float,
-                               target_initial_hole_separation: float | None,
-                               target_final_hole_separation: float) -> PolygonHoleSequencePlan:
+                               min_initial_hole_spacing: float,
+                               target_initial_hole_spacing: float | None,
+                               target_final_hole_spacing: float) -> PolygonHoleSequencePlan:
     """
     Returns object containing values needed to generate a polygon hole sequence.
-    If `target_initial_hole_separation` is not provided, the optimal initial hole separation is found using `min_initial_hole_separation`.
+    If `target_initial_hole_spacing` is not provided, the optimal initial hole spacing is found using `min_initial_hole_spacing`.
     Raises 'PolygonHoleSequencePlanningError' if input is invalid.
     """
     
-    # Initial hole separation is defined only if there are at least 2 initial holes
+    # Initial hole spacing is defined only if there are at least 2 initial holes
     MIN_INITIAL_NUM_HOLES = 2
 
     # Input validation helper
-    def validate(initial_hole_separation: float, initial_hole_separation_name: str, initial_num_holes: int) -> None:
-        if initial_hole_separation <= target_final_hole_separation:
-            error_message = f"{initial_hole_separation_name} ({initial_hole_separation}) must be larger than target final hole separation ({target_final_hole_separation})"
+    def validate(initial_hole_spacing: float, initial_hole_spacing_name: str, initial_num_holes: int) -> None:
+        if initial_hole_spacing <= target_final_hole_spacing:
+            error_message = f"{initial_hole_spacing_name} ({initial_hole_spacing}) must be larger than target final hole spacing ({target_final_hole_spacing})"
             raise PolygonHoleSequencePlanningError(error_message)
         if initial_num_holes < MIN_INITIAL_NUM_HOLES:
-            error_message = f"{initial_hole_separation_name} ({initial_hole_separation}) is too large for polygon perimeter ({polygon_perimeter}); yielded less than {MIN_INITIAL_NUM_HOLES} initial holes"
+            error_message = f"{initial_hole_spacing_name} ({initial_hole_spacing}) is too large for polygon perimeter ({polygon_perimeter}); yielded less than {MIN_INITIAL_NUM_HOLES} initial holes"
             raise PolygonHoleSequencePlanningError(error_message)
 
-    # Use target initial hole separation if provided
-    if target_initial_hole_separation is not None:
-        initial_num_holes = round(polygon_perimeter / target_initial_hole_separation)
-        validate(target_initial_hole_separation, "Target initial hole separation", initial_num_holes)
-        return PolygonHoleSequencePlan(polygon_perimeter, initial_num_holes, target_final_hole_separation)
+    # Use target initial hole spacing if provided
+    if target_initial_hole_spacing is not None:
+        initial_num_holes = round(polygon_perimeter / target_initial_hole_spacing)
+        validate(target_initial_hole_spacing, "Target initial hole spacing", initial_num_holes)
+        return PolygonHoleSequencePlan(polygon_perimeter, initial_num_holes, target_final_hole_spacing)
 
-    # Find plan with optimal initial hole separation
-    max_initial_num_holes = int(np.floor(polygon_perimeter / min_initial_hole_separation))
-    validate(min_initial_hole_separation, "Could not find optimal initial separation since min initial hole separation", max_initial_num_holes)
+    # Find plan with optimal initial hole spacing
+    max_initial_num_holes = int(np.floor(polygon_perimeter / min_initial_hole_spacing))
+    validate(min_initial_hole_spacing, "Could not find optimal initial spacing since min initial hole spacing", max_initial_num_holes)
     plans = [
-        PolygonHoleSequencePlan(polygon_perimeter, initial_num_holes, target_final_hole_separation)
+        PolygonHoleSequencePlan(polygon_perimeter, initial_num_holes, target_final_hole_spacing)
         for initial_num_holes in range(MIN_INITIAL_NUM_HOLES, max_initial_num_holes + 1)
     ]
-    optimal_plan = min(plans, key = lambda plan: abs(target_final_hole_separation - plan.final_hole_separation))
+    optimal_plan = min(plans, key = lambda plan: abs(target_final_hole_spacing - plan.final_hole_spacing))
     return optimal_plan
 
-def generate_polygon_holes(vertices: PointArray, num_points: int, separation: float) -> list[Point]:
+def generate_polygon_holes(vertices: PointArray, num_points: int, spacing: float) -> list[Point]:
     """
     Returns list of Point instances placed equidistantly along a polygon's perimeter, representing the holes to be laser machined.
     """
@@ -80,13 +80,13 @@ def generate_polygon_holes(vertices: PointArray, num_points: int, separation: fl
     # Travel along perimeter, placing equidistant points
     while len(points) < num_points:
         
-        # Get distance between points and effective separation (adjusted for carried distance)
+        # Get distance between points and effective spacing (adjusted for carried distance)
         dist_between_points = Point.distance_between_points(p1, p2)
-        separation_eff = separation - carry
+        spacing_eff = spacing - carry
 
         # If distance is insufficient, shift bounds and carry distance over to next iteration
         # Modular incr. of vertex pointer induces wraparound when final vertex is reached
-        if dist_between_points <= separation_eff:
+        if dist_between_points <= spacing_eff:
             carry += dist_between_points
             vertex_ptr = (vertex_ptr + 1) % len(vertices)
             p1 = p2
@@ -94,14 +94,14 @@ def generate_polygon_holes(vertices: PointArray, num_points: int, separation: fl
         
         # Else place point between bounds and continue with new point as starting bound
         else:
-            p_between = Point.point_between_points(p1, p2, separation_eff)
+            p_between = Point.point_between_points(p1, p2, spacing_eff)
             points.append(p_between)
             p1 = p_between
             carry = 0
 
         # Note: when point to be added coincides with a vertex, first conditional block is triggered,
         # bounds are shifted, and in next iteration, point is placed at previous ending bound
-        # since separation_eff = 0!
+        # since spacing_eff = 0!
 
     return points
 
@@ -172,16 +172,16 @@ class PolygonHoleSequenceGenerator(Loggable):
     """
     def __init__(self,
                  vertices: PointArray,
-                 min_initial_hole_separation: float,
-                 target_initial_hole_separation: float | None,
-                 target_final_hole_separation: float) -> None:
+                 min_initial_hole_spacing: float,
+                 target_initial_hole_spacing: float | None,
+                 target_final_hole_spacing: float) -> None:
         # Initialize logging
         super().__init__()
 
         # Generate polygon hole sequence
         polygon_perimeter = vertices.sum_of_distances(wraparound = True)
-        polygon_hole_sequence_plan = plan_polygon_hole_sequence(polygon_perimeter, min_initial_hole_separation, target_initial_hole_separation, target_final_hole_separation)
-        polygon_holes = generate_polygon_holes(vertices, polygon_hole_sequence_plan.total_num_holes, polygon_hole_sequence_plan.final_hole_separation)
+        polygon_hole_sequence_plan = plan_polygon_hole_sequence(polygon_perimeter, min_initial_hole_spacing, target_initial_hole_spacing, target_final_hole_spacing)
+        polygon_holes = generate_polygon_holes(vertices, polygon_hole_sequence_plan.total_num_holes, polygon_hole_sequence_plan.final_hole_spacing)
         segment_hole_sequence_template = generate_segment_hole_sequence_template(polygon_hole_sequence_plan.num_passes)
         polygon_hole_sequence = generate_polygon_hole_sequence(
             polygon_holes, segment_hole_sequence_template, polygon_hole_sequence_plan.num_passes, polygon_hole_sequence_plan.initial_num_holes
@@ -194,14 +194,14 @@ class PolygonHoleSequenceGenerator(Loggable):
             f"No. passes (excluding initial pass): {self.polygon_hole_sequence_plan.num_passes}",
             f"Initial pass no. holes: {self.polygon_hole_sequence_plan.initial_num_holes}",
             f"Total no. holes: {self.polygon_hole_sequence_plan.total_num_holes}",
-            f"Initial pass hole separation: {self.polygon_hole_sequence_plan.initial_hole_separation}",
-            f"Final pass hole separation: {self.polygon_hole_sequence_plan.final_hole_separation}"
+            f"Initial pass hole spacing: {self.polygon_hole_sequence_plan.initial_hole_spacing}",
+            f"Final pass hole spacing: {self.polygon_hole_sequence_plan.final_hole_spacing}"
         ]
         self.log("\n".join(log_lines))
     
     def get_polygon_hole_sequence_plan(self) -> PolygonHoleSequencePlan:
         """
-        Returns the polygon hole sequence plan as an object containing no. passes excluding initial pass, initial and total no. holes, and initial and final hole separations.
+        Returns the polygon hole sequence plan as an object containing no. passes excluding initial pass, initial and total no. holes, and initial and final hole spacings.
         """
         return self.polygon_hole_sequence_plan
 
