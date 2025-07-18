@@ -4,7 +4,7 @@ Module containing constants that define default behaviour.
 
 ### Sequencing ###
 
-DEFAULT_LENGTH_UNIT: float = 1e-6
+WORKING_LENGTH_UNIT: float = 1e-6
 
 # Spacing is measured between hole centers
 HOLE_DIAMETER: float = 1.0

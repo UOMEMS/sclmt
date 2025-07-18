@@ -8,11 +8,11 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .logging import Loggable
-from .config import DEFAULT_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SPACING, DEFAULT_TARGET_FINAL_HOLE_SPACING
+from .config import WORKING_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SPACING, DEFAULT_TARGET_FINAL_HOLE_SPACING
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
-from .visualization import plot_polygons, animate_sequence
 from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, NumericalControlFileWriter
+from .visualization import plot_polygons, animate_sequence
 
 class LayoutToNumericalControlPipeline(Loggable):
     """
@@ -25,7 +25,6 @@ class LayoutToNumericalControlPipeline(Loggable):
 
     def __init__(self) -> None:
         super().__init__()
-        self.length_unit: float = DEFAULT_LENGTH_UNIT
         self.polygons_as_vertices: list[PointArray] = None
         self.num_polygons: int = None
         self.min_initial_hole_spacing: list[float] = None
@@ -56,20 +55,17 @@ class LayoutToNumericalControlPipeline(Loggable):
     # Layout loading
     # ----------------------------
 
-    def set_length_unit(self, unit: float) -> Self:
+    def set_polygons(self, polygons_as_vertices: list[ArrayLike], length_unit: float | None = None) -> Self:
         """
-        Sets unit of length for the layout and all configurations.
-        Provide unit as a scaling factor with respect to meters (e.g., um → 1e-6).
-        Does not perform a unit conversion when invoked multiple times.
-        """
-        self.length_unit = unit
-        return self
-
-    def set_polygons(self, polygons_as_vertices: list[ArrayLike]) -> Self:
-        """
-        Sets the layout (list of polygons) to be laser machined.
-        Each ArrayLike instance in argument 'polygons_as_vertices' must be of shape [N][2].
+        Sets the layout to be laser machined from a list of polygons.
+        
+        Argument 'polygons_as_vertices' is a list of ArrayLike instances.
+        Each ArrayLike instance has shape [N][2] and holds the coordinates of one polygon's vertices.
         Provide polygons in the desired machining order.
+
+        Argument 'length_unit' is a scaling factor with respect to meters (e.g., μm → 1e-6).
+        If provided, vertex coordinates are converted to the working length unit as defined in config.py.
+        Otherwise, vertex coordinates are assumed to already be in the working length unit.
         """
         self.polygons_as_vertices = []
         for vertices_arraylike in polygons_as_vertices:
@@ -83,6 +79,11 @@ class LayoutToNumericalControlPipeline(Loggable):
                 raise ValueError("Input arrays violate [N][2] shape requirement")
             # Convert NDArray of vertices to PointArray before storing
             self.polygons_as_vertices.append(PointArray(vertices_ndarray))
+       
+        # Perform unit conversion if necessary
+        if length_unit is not None and length_unit != WORKING_LENGTH_UNIT:
+            self.scale_layout(length_unit / WORKING_LENGTH_UNIT)
+        
         # Store number of polygons for later convenience
         self.num_polygons = len(self.polygons_as_vertices)
         
@@ -93,8 +94,8 @@ class LayoutToNumericalControlPipeline(Loggable):
         Sets the layout to be laser machined from the contents of a file.
         Adopts the length unit of the file being read.
         """
-        self.set_length_unit(layout_file_reader.get_length_unit())
-        self.set_polygons(layout_file_reader.get_polygons_as_vertices())
+        self.set_polygons(layout_file_reader.get_polygons_as_vertices(), 
+            layout_file_reader.get_length_unit())
         return self
 
     # ----------------------------
@@ -239,7 +240,7 @@ class LayoutToNumericalControlPipeline(Loggable):
         Writes the hole sequence for the loaded layout to a numerical control file.
         Converts the length unit of hole coordinates to that of the file being written.
         """
-        unit_conversion_factor = self.length_unit / numerical_control_file_writer.get_length_unit()
+        unit_conversion_factor = WORKING_LENGTH_UNIT / numerical_control_file_writer.get_length_unit()
         for current_pass in self.layout_hole_sequence:
             for point in current_pass:
                 numerical_control_file_writer.add_hole(point.x * unit_conversion_factor, point.y * unit_conversion_factor)
