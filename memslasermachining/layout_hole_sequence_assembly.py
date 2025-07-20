@@ -5,7 +5,10 @@ class SequentialLayoutHoleSequenceAssembler(LayoutHoleSequenceAssembler):
     """
     Assembles layout hole sequence by concatenating polygon hole sequences in the order they are provided.
     """
-    
+
+    def __init__(self):
+        super().__init__()
+
     def get_layout_hole_sequence(self, polygon_hole_sequences: list[list[list[Point]]]) -> list[list[Point]]:
         layout_hole_sequence = []
         for hole_sequence in polygon_hole_sequences:
@@ -17,7 +20,10 @@ class InterleavedLayoutHoleSequenceAssembler(LayoutHoleSequenceAssembler):
     Assembles layout hole sequence by interleaving the passes of polygon hole sequences.
     Pass i of layout hole sequence is the union of pass i of all provided polygon hole sequences.
     """
-    
+
+    def __init__(self):
+        super().__init__()
+
     def get_layout_hole_sequence(self, polygon_hole_sequences: list[list[list[Point]]]) -> list[list[Point]]:
         max_num_passes = max(len(hole_sequence) for hole_sequence in polygon_hole_sequences)
         layout_hole_sequence = [[] for _ in range(max_num_passes)]

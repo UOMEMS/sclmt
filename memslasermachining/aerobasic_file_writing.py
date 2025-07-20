@@ -13,17 +13,22 @@ class AeroBasicFileWriter(NumericalControlFileWriter):
     COORD_NUM_DIGITS = 6
 
     def __init__(self, filename: str) -> None:
+        super().__init__()
+        
         # Set default stage parameters
         self.transition_feedrate: float = 0.2
         self.shape_feedrate: float = 0.2
         self.transition_feedrate_reduction_enabled: bool = False
         self.transition_feedrate_reduction_distance_threshold_mm: float = 300/1000
         self.transition_feedrate_reduction_factor: float = 3
+        
         # Set default laser parameters
         self.pulse_num: int = 3
         self.frequency_Hz: int = 200000
+        
         # Initialize previous hole coordinates
         self.prev_hole: tuple[float, float] = (0, 0)
+        
         # Initialize file name and string for hole commands
         self.filename: str = filename
         self.hole_commands: str = ""
@@ -134,3 +139,13 @@ class AeroBasicFileWriter(NumericalControlFileWriter):
     def write_file(self) -> None:
         with open(self.filename, 'w') as file:
             file.write(self.start_commands() + "\n\n" + self.hole_commands + "\n" + self.end_commands())
+        
+        # Log inputs/parameters
+        self.log(f"Transition feedrate: {self.transition_feedrate}")
+        self.log(f"Shape feedrate: {self.shape_feedrate}")
+        self.log(f"Transition feedrate reduction enabled: {self.transition_feedrate_reduction_enabled}")
+        self.log(f"Transition feedrate reduction distance threshold (mm): {self.transition_feedrate_reduction_distance_threshold_mm}")
+        self.log(f"Transition feedrate reduction factor: {self.transition_feedrate_reduction_factor}")
+        self.log(f"Pulse number: {self.pulse_num}")
+        self.log(f"Frequency (Hz): {self.frequency_Hz}")
+        self.log(f"File path/name: {self.filename}")

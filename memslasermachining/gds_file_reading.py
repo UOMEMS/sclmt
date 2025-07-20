@@ -12,6 +12,7 @@ class GDSFileReader(LayoutFileReader):
     """
 
     def __init__(self, filename: str) -> None:
+        super().__init__()
 
         # Read GDS file into library
         self.gds_lib = gdspy.GdsLibrary(infile = filename)
@@ -30,6 +31,9 @@ class GDSFileReader(LayoutFileReader):
         # Get polygon vertices
         # Assume each polygon is on layer 0 and has a unique datatype
         self.polygons_as_vertices = [polygons_dict[key][0] for key in sorted(polygons_dict) if key[0] == 0]
+
+        # Log input
+        self.log(f"File path/name: {filename}")
 
     def get_length_unit(self) -> float:
         return self.gds_lib.unit

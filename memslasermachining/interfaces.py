@@ -5,9 +5,10 @@ Module containing interfaces (abstract classes) for reading layout files, aligni
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numpy.typing import ArrayLike
+from .logging import Loggable
 from .points import Point
 
-class LayoutFileReader(ABC):
+class LayoutFileReader(ABC, Loggable):
     """
     Used to set the layout to be laser machined from the contents of a file.
     """
@@ -28,7 +29,7 @@ class LayoutFileReader(ABC):
         """
         pass
 
-class LayoutAligner(ABC):
+class LayoutAligner(ABC, Loggable):
     """
     Used to compute the transformations needed to align a layout with the physical substrate to be laser machined.
     Any 2D affine transformation can be constructed by applying, in any order and any number of times, translation, 
@@ -73,7 +74,7 @@ class LayoutAligner(ABC):
         """
         pass
 
-class LayoutHoleSequenceAssembler(ABC):
+class LayoutHoleSequenceAssembler(ABC, Loggable):
     """
     Used to assemble polygon hole sequences into a single layout-wide sequence.
     """
@@ -89,7 +90,7 @@ class LayoutHoleSequenceAssembler(ABC):
         """
         pass
 
-class NumericalControlFileWriter(ABC):
+class NumericalControlFileWriter(ABC, Loggable):
     """
     Used to write a layout hole sequence to a numerical control file.
     """

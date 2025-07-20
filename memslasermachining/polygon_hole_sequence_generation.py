@@ -191,13 +191,13 @@ class PolygonHoleSequenceGenerator(Loggable):
 
         # Log plan
         log_lines = [
-            f"No. passes (excluding initial pass): {self.polygon_hole_sequence_plan.num_passes}",
-            f"Initial pass no. holes: {self.polygon_hole_sequence_plan.initial_num_holes}",
-            f"Total no. holes: {self.polygon_hole_sequence_plan.total_num_holes}",
-            f"Initial pass hole spacing: {self.polygon_hole_sequence_plan.initial_hole_spacing}",
-            f"Final pass hole spacing: {self.polygon_hole_sequence_plan.final_hole_spacing}"
+            f"Number of passes (including initial pass): {self.polygon_hole_sequence_plan.num_passes + 1}",
+            f"Initial number of holes: {self.polygon_hole_sequence_plan.initial_num_holes}",
+            f"Total number of holes: {self.polygon_hole_sequence_plan.total_num_holes}",
+            f"Initial hole spacing: {self.polygon_hole_sequence_plan.initial_hole_spacing}",
+            f"Final hole spacing: {self.polygon_hole_sequence_plan.final_hole_spacing}"
         ]
-        self.log("\n".join(log_lines))
+        for line in log_lines: self.log(line)
     
     def get_polygon_hole_sequence_plan(self) -> PolygonHoleSequencePlan:
         """
