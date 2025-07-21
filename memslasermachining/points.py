@@ -1,6 +1,6 @@
 """
 Module containing numpy NDArray wrapper classes for working with points.
-Point and PointArray classes use numpy's efficient linear algebra operations while providing full type hinting.
+`Point` and `PointArray` classes use numpy's efficient linear algebra operations while providing full type hinting.
 """
 
 from __future__ import annotations
@@ -74,13 +74,13 @@ class PointArray:
 
     def translate(self, dx: float, dy: float) -> None:
         """
-        Translates all points in this PointArray by the provided offsets.
+        Translates all points in this `PointArray` by the provided offsets.
         """
         self.points = self.points + np.array([dx, dy])
 
     def scale(self, scaling_factor_x: float, scaling_factor_y: float | None = None) -> None:
         """
-        Scales all points in this PointArray by the provided factors.
+        Scales all points in this `PointArray` by the provided factors.
         If `scaling_factor_y` is not provided, it will use the same value as `scaling_factor_x`.
         """
         if scaling_factor_y is None:
@@ -89,7 +89,7 @@ class PointArray:
 
     def rotate(self, angle_rad: float) -> None:
         """
-        Rotates all points in this PointArray about (0,0) by the provided angle.
+        Rotates all points in this `PointArray` about (0,0) by the provided angle.
         Positive angles cause counterclockwise rotations.
         """
         rotation_matrix = np.array([
@@ -100,10 +100,10 @@ class PointArray:
 
     def bounding_points(self, margin_factor: float = 0) -> tuple[Point, Point]:
         """
-        Returns min and max Point instances that bound this PointArray.
+        Returns min and max `Point` instances that bound this `PointArray`.
         """
 
-        # Use 'axis = 0' to perform operation down the columns
+        # Use axis = 0 to perform operation down the columns
         points = self.points
         min_point = np.min(points, axis = 0)
         max_point = np.max(points, axis = 0)
@@ -145,7 +145,7 @@ class PointArray:
     @staticmethod
     def concatenate(point_arrays: list[PointArray]) -> PointArray:
         """
-        Returns the concatenation of a list of PointArray instances.
+        Returns the concatenation of a list of `PointArray` instances.
         """
         ndarrays = [point_array.points for point_array in point_arrays]
         return PointArray(np.concatenate(ndarrays))

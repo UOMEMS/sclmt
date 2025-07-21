@@ -1,5 +1,5 @@
 """
-Module containing the 'Loggable' class, which provides a simple logging system.
+Module containing the `Loggable` class, which provides a simple logging system.
 """
 
 import datetime

@@ -1,5 +1,5 @@
 """
-Module containing the 'LayoutToNumericalControlPipeline' class, which orchestrates the generation of laser machining numerical control code from a layout.
+Module containing the `LayoutToNumericalControlPipeline` class, which orchestrates the generation of laser machining numerical control code from a layout.
 """
 
 from typing import Callable, Any, Self
@@ -54,7 +54,9 @@ class LayoutToNumericalControlPipeline(Loggable):
         return decorator
 
     def group_logs(title: str):
-        """Decorator that adds a title and separator lines before and after a method's execution to group its logs."""
+        """
+        Decorator that adds a title and separator lines before and after a method's execution to group its logs.
+        """
         def decorator(func):
             @wraps(func)
             def wrapper(self, *args, **kwargs):
@@ -76,8 +78,8 @@ class LayoutToNumericalControlPipeline(Loggable):
         """
         Sets the layout to be laser machined from a list of polygons.
         
-        Argument 'polygons_as_vertices' is a list of ArrayLike instances.
-        Each ArrayLike instance has shape [N][2] and holds the coordinates of one polygon's vertices.
+        Argument `polygons_as_vertices` is a list of polygons.
+        Each polygon is represented by a vertex coordinate array (ArrayLike instance of shape [N][2]).
         Provide polygons in the desired machining order.
         """
         self.polygons_as_vertices = []
@@ -191,17 +193,20 @@ class LayoutToNumericalControlPipeline(Loggable):
     ) -> Self:
         """
         Sets the minimum initial, target initial, and target final pass hole spacings between adjacent hole centers for each polygon.
-        Target and actual hole spacing may vary due to rounding.
+        Target and actual hole spacings may vary due to rounding.
         
         Only arguments that are provided (i.e., not None) will be used.
         Each argument can be a single value for all polygons or a list of values for each polygon.
         
         If `min_initial_hole_spacing` and `target_final_hole_spacing` are not provided, they will be set to the default values 
-        specified in `config.py` when `generate_hole_sequence()` is called. 
+        specified in `config.py` when `generate_hole_sequence()` is called.
 
-        If `target_initial_hole_spacing` is not provided, optimal initial hole spacings will be automatically chosen 
+        If `target_initial_hole_spacing` is not provided, optimal initial hole spacings will be automatically found 
         for each polygon when `generate_hole_sequence()` is called. An optimal initial hole spacing is larger than the minimum 
-        initial hole spacing, and minimizes the difference between the target and actual final hole spacing.
+        initial hole spacing, and minimizes the deviation between the target and actual final hole spacings.
+
+        Minimum/target initial hole spacings must be less than or equal to half the polygon perimeter.
+        Target final hole spacing must be less than the minimum/target initial hole spacings.
         """
         def set_validated_hole_spacing(name: str, value: float | list[float] | None) -> None:
             # Prevent modification if corresponding argument is None since users can call set_hole_spacing() multiple times
@@ -225,7 +230,8 @@ class LayoutToNumericalControlPipeline(Loggable):
     def generate_hole_sequence(self, layout_hole_sequence_assembler: LayoutHoleSequenceAssembler) -> Self:
         """
         Generates the hole sequence used to laser machine the loaded layout.
-        Polygon hole sequences are generated separately then assembled into a single layout-wide sequence according to the provided 'layout_hole_sequence_assembler'.
+        Polygon hole sequences are generated separately then assembled into a single layout hole sequence
+        according to the provided `layout_hole_sequence_assembler`.
         All configurations and layout transformations should be set before calling this method.
         """
         # Just-in-time default binding of hole spacings
@@ -315,8 +321,8 @@ class LayoutToNumericalControlPipeline(Loggable):
     @validate_state('layout_hole_sequence')
     def view_hole_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> Self:
         """
-        Animates the laser machining sequence of the loaded layout. Each color represents a different pass.
-        If argument 'individually' is True, each polygon's sequence is shown individually.
+        Animates the hole sequence for the loaded layout. Each color represents a different pass.
+        If argument `individually` is True, each polygon's hole sequence is shown individually.
         """
         if individually:
             for (vertices, generator) in zip(self.polygons_as_vertices, self.polygon_hole_sequence_generators):

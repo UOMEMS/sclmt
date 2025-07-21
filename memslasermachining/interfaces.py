@@ -16,7 +16,7 @@ class LayoutFileReader(ABC, Loggable):
     @abstractmethod
     def get_length_unit(self) -> float:
         """
-        Returns length unit used by the file being read as a scaling factor with respect to meters.
+        Returns length unit of the file being read as a scaling factor with respect to meters (e.g., 1e-6 → μm).
         """
         pass
     
@@ -24,7 +24,7 @@ class LayoutFileReader(ABC, Loggable):
     def get_polygons_as_vertices(self) -> list[ArrayLike]:
         """
         Returns the layout to be laser machined as a list of polygons from the file being read.
-        Each polygon is represented by a vertex array (ArrayLike instance of shape [N][2]).
+        Each polygon is represented by a vertex coordinate array (ArrayLike instance of shape [N][2]).
         The returned list is sorted by machining order.
         """
         pass
@@ -86,7 +86,7 @@ class LayoutHoleSequenceAssembler(ABC, Loggable):
         Argument `polygon_hole_sequences` is a list of hole sequences.
         Each hole sequence is a list of passes.
         Each pass is a list of holes.
-        Each hole is represented as a Point instance.
+        Each hole is represented as a `Point` instance.
         """
         pass
 
@@ -98,7 +98,7 @@ class NumericalControlFileWriter(ABC, Loggable):
     @abstractmethod
     def get_length_unit(self) -> float:
         """
-        Returns length unit used by the file being written as a scaling factor with respect to meters.
+        Returns length unit of the file being written as a scaling factor with respect to meters (e.g., 1e-6 → μm).
         """
         pass
     
@@ -109,7 +109,7 @@ class NumericalControlFileWriter(ABC, Loggable):
         Coordinates are provided in the file's length unit.
 
         This method appends commands to a buffer (e.g., string instance variable).
-        The actual file is only written when write_file() is called.
+        The actual file is only written when `write_file()` is called.
         """
         pass
     

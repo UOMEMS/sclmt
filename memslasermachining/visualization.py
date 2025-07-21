@@ -52,7 +52,7 @@ def plot_polygons(polygons_as_vertices: list[PointArray]) -> None:
 def animate_hole_sequence(vertices: PointArray, hole_sequence: list[list[Point]], animation_interval_ms: int) -> None:
     """
     Animates the provided hole sequence. Each color represents a different pass.
-    Argument 'vertices' should be a single polygon when animating a polygon hole sequence,
+    Argument `vertices` should be a single polygon when animating a polygon hole sequence,
     or the union of all polygons when animating a layout hole sequence.
     """
     # Create plot and set bounds

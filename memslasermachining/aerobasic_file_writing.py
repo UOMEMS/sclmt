@@ -1,12 +1,12 @@
 """
-Module containing the 'AeroBasicFileWriter' class, which writes a layout hole sequence to an AeroBasic program file.
+Module containing the `AeroBasicFileWriter` class, which writes a layout hole sequence to an AeroBasic program file.
 """
 
 from .interfaces import NumericalControlFileWriter
 
 class AeroBasicFileWriter(NumericalControlFileWriter):
     """
-    Writes the laser machining sequence of a layout to an AeroBasic program file.
+    Writes a layout hole sequence to an AeroBasic program file.
     """
 
     # Stage precision is 200 nm = 0.0002 mm → 4 decimal places + 2 for safety

@@ -1,5 +1,5 @@
 """
-Module containing the 'PolygonHoleSequenceGenerator' class, which generates the hole sequence needed to laser machine a single polygon.
+Module containing the `PolygonHoleSequenceGenerator` class, which generates the hole sequence needed to laser machine a single polygon.
 """
 
 import numpy as np
@@ -12,8 +12,8 @@ class PolygonHoleSequencePlanningError(Exception):
 class PolygonHoleSequencePlan:
     """
     Calculates and stores values needed to generate a polygon hole sequence:
-    - No. passes excluding initial pass
-    - Initial and total no. holes
+    - Number of passes excluding initial pass
+    - Initial and total number of holes
     - Initial and final hole spacings
     """
 
@@ -31,7 +31,7 @@ def plan_polygon_hole_sequence(polygon_perimeter: float,
     """
     Returns object containing values needed to generate a polygon hole sequence.
     If `target_initial_hole_spacing` is not provided, the optimal initial hole spacing is found using `min_initial_hole_spacing`.
-    Raises 'PolygonHoleSequencePlanningError' if input is invalid.
+    Raises `PolygonHoleSequencePlanningError` if input is invalid.
     """
     
     # Initial hole spacing is defined only if there are at least 2 initial holes
@@ -64,7 +64,7 @@ def plan_polygon_hole_sequence(polygon_perimeter: float,
 
 def generate_polygon_holes(vertices: PointArray, num_points: int, spacing: float) -> list[Point]:
     """
-    Returns list of Point instances placed equidistantly along a polygon's perimeter, representing the holes to be laser machined.
+    Returns list of `Point` instances placed equidistantly along a polygon's perimeter, representing the holes to be laser machined.
     """
 
     # Select first vertex as first point
@@ -109,7 +109,7 @@ def generate_segment_hole_sequence_template(num_passes: int) -> list[list[int]]:
     """
     Returns a list, where each element is a list of segment hole indices belonging to a specific machining pass.
     Assumes segments are bounded by two initial holes which are excluded from the sequence.
-    Argument 'num_passes' excludes the initial pass.
+    Argument `num_passes` excludes the initial pass.
     """
     
     # Partitioning helpers
@@ -142,8 +142,8 @@ def generate_segment_hole_sequence_template(num_passes: int) -> list[list[int]]:
 
 def generate_polygon_hole_sequence(holes: list[Point], segment_hole_sequence_template: list[list[int]], num_passes: int, initial_num_holes: int) -> list[list[Point]]:
     """
-    Returns a list, where each element is a list of Point instances representing holes belonging to a specific machining pass.
-    Argument 'num_passes' excludes the initial pass.
+    Returns a list, where each element is a list of `Point` instances representing holes belonging to a specific machining pass.
+    Argument `num_passes` excludes the initial pass.
     """
     
     # Each segment of the polygon contains the same number of holes
@@ -207,6 +207,6 @@ class PolygonHoleSequenceGenerator(Loggable):
 
     def get_polygon_hole_sequence(self) -> list[list[Point]]:
         """
-        Returns the polygon hole sequence as a list of lists, where each element is a list of Point instances representing holes belonging to a specific machining pass.
+        Returns the polygon hole sequence as a list of lists, where each element is a list of `Point` instances representing holes belonging to a specific machining pass.
         """
         return self.polygon_hole_sequence

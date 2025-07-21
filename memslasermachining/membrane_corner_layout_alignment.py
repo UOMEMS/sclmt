@@ -1,5 +1,5 @@
 """
-Module containing the 'MembraneCornerLayoutAligner' class, which is used to align a layout with a stage-mounted square membrane.
+Module containing the `MembraneCornerLayoutAligner` class, which is used to align a layout with a stage-mounted square membrane.
 """
 
 import numpy as np

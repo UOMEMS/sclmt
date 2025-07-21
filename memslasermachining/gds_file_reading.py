@@ -1,5 +1,5 @@
 """
-Module containing the 'GDSFileReader' class, which reads the layout to be laser machined from a GDS file.
+Module containing the `GDSFileReader` class, which reads the layout to be laser machined from a GDSII file.
 """
 
 from numpy.typing import ArrayLike
@@ -8,7 +8,8 @@ from .interfaces import LayoutFileReader
 
 class GDSFileReader(LayoutFileReader):
     """
-    Reads the layout to be laser machined from a GDS file.
+    Reads the layout to be laser machined from a GDSII file.
+    Refer to the README for GDSII file requirements.
     """
 
     def __init__(self, filename: str) -> None:

@@ -1,3 +1,8 @@
+"""
+Module containing the `SequentialLayoutHoleSequenceAssembler` and `InterleavedLayoutHoleSequenceAssembler` classes,
+which assemble layout hole sequences from polygon hole sequences.
+"""
+
 from .points import Point
 from .interfaces import LayoutHoleSequenceAssembler
 
