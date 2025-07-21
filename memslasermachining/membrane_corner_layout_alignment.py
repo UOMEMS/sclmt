@@ -1,11 +1,11 @@
 """
-Module containing the 'SquareMembraneLayoutAligner' class, which is used to align a layout with a stage-mounted square membrane.
+Module containing the 'MembraneCornerLayoutAligner' class, which is used to align a layout with a stage-mounted square membrane.
 """
 
 import numpy as np
 from .interfaces import LayoutAligner
 
-class SquareMembraneLayoutAligner(LayoutAligner):
+class MembraneCornerLayoutAligner(LayoutAligner):
     """
     Computes the transformations needed to align a layout with a stage-mounted square membrane, using the membrane's corners as reference points.
     Layout must be initially centered at (0,0).

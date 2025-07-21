@@ -12,54 +12,35 @@ class AeroBasicFileWriter(NumericalControlFileWriter):
     # Stage precision is 200 nm = 0.0002 mm → 4 decimal places + 2 for safety
     COORD_NUM_DIGITS = 6
 
-    def __init__(self, filename: str) -> None:
+    def __init__(
+        self, 
+        filename: str,
+        # Stage parameters
+        transition_feedrate: float = 0.2,
+        shape_feedrate: float = 0.2,
+        transition_feedrate_reduction_enabled: bool = False,
+        transition_feedrate_reduction_distance_threshold_mm: float = 300/1000,
+        transition_feedrate_reduction_factor: float = 3,
+        # Laser parameters
+        pulse_num: int = 3,
+        frequency_Hz: int = 200000
+    ) -> None:
         super().__init__()
+        self.filename = filename
+
+        # Set stage and laser parameters
+        self.transition_feedrate = transition_feedrate
+        self.shape_feedrate = shape_feedrate
+        self.transition_feedrate_reduction_enabled = transition_feedrate_reduction_enabled
+        self.transition_feedrate_reduction_distance_threshold_mm = transition_feedrate_reduction_distance_threshold_mm
+        self.transition_feedrate_reduction_factor = transition_feedrate_reduction_factor
+        self.pulse_num = pulse_num
+        self.frequency_Hz = frequency_Hz
         
-        # Set default stage parameters
-        self.transition_feedrate: float = 0.2
-        self.shape_feedrate: float = 0.2
-        self.transition_feedrate_reduction_enabled: bool = False
-        self.transition_feedrate_reduction_distance_threshold_mm: float = 300/1000
-        self.transition_feedrate_reduction_factor: float = 3
-        
-        # Set default laser parameters
-        self.pulse_num: int = 3
-        self.frequency_Hz: int = 200000
-        
-        # Initialize previous hole coordinates
+        # Initialize previous hole coordinates and string for hole commands
         self.prev_hole: tuple[float, float] = (0, 0)
-        
-        # Initialize file name and string for hole commands
-        self.filename: str = filename
         self.hole_commands: str = ""
 
-    def _set_params(self, params: dict) -> None:
-        """
-        Private method for overwriting parameters if arguments are not None. 
-        """
-        for param, value in params.items():
-            if param != 'self' and value is not None:
-                setattr(self, param, value)
-
-    def set_stage_params(self,
-                         transition_feedrate: float = None,
-                         shape_feedrate: float = None,
-                         transition_feedrate_reduction_enabled: bool = None,
-                         transition_feedrate_reduction_distance_threshold_mm: float = None,
-                         transition_feedrate_reduction_factor: float = None) -> None:
-        """
-        Sets the parameters of the translational stage.
-        Unspecified parameters will assume default values.
-        """
-        self._set_params(locals())
-    
-    def set_laser_params(self, pulse_num: int = None, frequency_Hz: int = None) -> None:
-        """
-        Sets the parameters of the laser.
-        Unspecified parameters will assume default values.
-        """
-        self._set_params(locals())
-    
     def start_commands(self) -> str:
         """
         String of commands at the start of the program.
@@ -141,6 +122,7 @@ class AeroBasicFileWriter(NumericalControlFileWriter):
             file.write(self.start_commands() + "\n\n" + self.hole_commands + "\n" + self.end_commands())
         
         # Log inputs/parameters
+        self.log(f"File path/name: {self.filename}")
         self.log(f"Transition feedrate: {self.transition_feedrate}")
         self.log(f"Shape feedrate: {self.shape_feedrate}")
         self.log(f"Transition feedrate reduction enabled: {self.transition_feedrate_reduction_enabled}")
@@ -148,4 +130,3 @@ class AeroBasicFileWriter(NumericalControlFileWriter):
         self.log(f"Transition feedrate reduction factor: {self.transition_feedrate_reduction_factor}")
         self.log(f"Pulse number: {self.pulse_num}")
         self.log(f"Frequency (Hz): {self.frequency_Hz}")
-        self.log(f"File path/name: {self.filename}")

@@ -1,7 +1,7 @@
 from .layout_to_numerical_control_pipeline import LayoutToNumericalControlPipeline
 from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, NumericalControlFileWriter
 from .gds_file_reading import GDSFileReader
-from .square_membrane_layout_alignment import SquareMembraneLayoutAligner
+from .membrane_corner_layout_alignment import MembraneCornerLayoutAligner
 from .layout_hole_sequence_assembly import SequentialLayoutHoleSequenceAssembler, InterleavedLayoutHoleSequenceAssembler
 from .aerobasic_file_writing import AeroBasicFileWriter
 
@@ -12,7 +12,7 @@ __all__ = [
     'LayoutHoleSequenceAssembler',
     'NumericalControlFileWriter',
     'GDSFileReader',
-    'SquareMembraneLayoutAligner',
+    'MembraneCornerLayoutAligner',
     'SequentialLayoutHoleSequenceAssembler',
     'InterleavedLayoutHoleSequenceAssembler',
     'AeroBasicFileWriter',
