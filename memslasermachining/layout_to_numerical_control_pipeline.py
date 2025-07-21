@@ -12,7 +12,7 @@ from .config import WORKING_LENGTH_UNIT, DEFAULT_MIN_INITIAL_HOLE_SPACING, DEFAU
 from .points import Point, PointArray
 from .polygon_hole_sequence_generation import PolygonHoleSequencePlanningError, PolygonHoleSequenceGenerator
 from .interfaces import LayoutFileReader, LayoutAligner, LayoutHoleSequenceAssembler, NumericalControlFileWriter
-from .visualization import plot_polygons, animate_sequence
+from .visualization import plot_polygons, animate_hole_sequence
 
 class LayoutToNumericalControlPipeline(Loggable):
     """
@@ -320,8 +320,8 @@ class LayoutToNumericalControlPipeline(Loggable):
         """
         if individually:
             for (vertices, generator) in zip(self.polygons_as_vertices, self.polygon_hole_sequence_generators):
-                animate_sequence(vertices, generator.get_polygon_hole_sequence(), animation_interval_ms)
+                animate_hole_sequence(vertices, generator.get_polygon_hole_sequence(), animation_interval_ms)
         else:
             polygons_as_vertices_merged = PointArray.concatenate(self.polygons_as_vertices)
-            animate_sequence(polygons_as_vertices_merged, self.layout_hole_sequence, animation_interval_ms)
+            animate_hole_sequence(polygons_as_vertices_merged, self.layout_hole_sequence, animation_interval_ms)
         return self

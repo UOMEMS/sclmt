@@ -5,83 +5,89 @@ Module containing visualization functions.
 import random
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from .config import PLOT_MARGIN_FACTOR
+from matplotlib.axes import Axes
+from .config import HOLE_DIAMETER, PLOT_MARGIN_FACTOR, FILL_OPACITY
 from .points import Point, PointArray
+
+def set_plot_bounds(ax: Axes, point_array: PointArray) -> None:
+    """
+    Sets the plot bounds to hug the provided point array with a margin.
+    Sets the aspect ratio to be equal.
+    """
+    min_point, max_point = point_array.bounding_points(margin_factor=PLOT_MARGIN_FACTOR)
+    ax.set_xlim(min_point.x, max_point.x)
+    ax.set_ylim(min_point.y, max_point.y)
+    ax.set_aspect('equal')
+
+def unique_random_colors(num_colors: int) -> list[str]:
+    """
+    Generates a list of unique random colors as hex code strings.
+    """
+    colors = set()
+    while len(colors) < num_colors:
+        colors.add(f"#{random.randint(0, 0xFFFFFF):06x}")
+    return list(colors)
 
 def plot_polygons(polygons_as_vertices: list[PointArray]) -> None:
     """
     Plots the provided polygons. Colors represent machining order.
     """
-    # Merge vertices of all polygons to find bounds
-    polygons_as_vertices_merged = PointArray.concatenate(polygons_as_vertices)
-    min_point, max_point = polygons_as_vertices_merged.bounding_points(margin_factor=PLOT_MARGIN_FACTOR)
-    
+    # Create plot and set bounds around union of all polygons
     _, ax = plt.subplots()
-    ax.set_xlim(min_point.x, max_point.x)
-    ax.set_ylim(min_point.y, max_point.y)
-    ax.set_aspect('equal')
+    set_plot_bounds(ax, PointArray.concatenate(polygons_as_vertices))
     
-    # Generate random colors for each polygon
-    colors = [f"#{random.randint(0, 0xFFFFFF):06x}" for _ in range(len(polygons_as_vertices))]
+    # Generate unique random colors for each polygon
+    colors = unique_random_colors(len(polygons_as_vertices))
     
     # Plot each polygon
     for i, polygon in enumerate(polygons_as_vertices):
         x_coords = [point.x for point in polygon]
         y_coords = [point.y for point in polygon]
-        ax.fill(x_coords, y_coords, color=colors[i], alpha=0.6, label=f"{i+1}")
+        ax.fill(x_coords, y_coords, color=colors[i], alpha=FILL_OPACITY, label=f"{i+1}")
     
     # Add legend
     ax.legend(loc='upper center', ncol=len(polygons_as_vertices), frameon=False)
     plt.show()
 
-def animate_sequence(vertices: PointArray, sequence: list[list[Point]], animation_interval_ms: int) -> None:
+def animate_hole_sequence(vertices: PointArray, hole_sequence: list[list[Point]], animation_interval_ms: int) -> None:
     """
-    Animates a machining sequence. Each color represents a different pass.
+    Animates the provided hole sequence. Each color represents a different pass.
+    Argument 'vertices' should be a single polygon when animating a polygon hole sequence,
+    or the union of all polygons when animating a layout hole sequence.
     """
-
-    # Set plot bounds
-    min_point, max_point = vertices.bounding_points(margin_factor = PLOT_MARGIN_FACTOR)
+    # Create plot and set bounds
     fig, ax = plt.subplots()
-    ax.set_xlim(min_point.x, max_point.x)
-    ax.set_ylim(min_point.y, max_point.y)
-    ax.set_aspect('equal')
+    set_plot_bounds(ax, vertices)
     
-    # Split sequence into x and y values
-    split_sequence = [[],[]]
-    for current_pass in sequence:
-        split_sequence[0].append([point.x for point in current_pass])
-        split_sequence[1].append([point.y for point in current_pass])
-    sequence = split_sequence
-
-    # Generate a unique random color for each pass
-    colors = [f"#{random.randint(0, 0xFFFFFF):06x}" for _ in range(len(sequence[0]))]
+    # Generate unique random colors for each pass
+    colors = unique_random_colors(len(hole_sequence))
     
-    # Dictionary to hold circle patches by pass
-    patches = {i: [] for i in range(len(sequence[0]))}
-
-    def update(num):
-        # Determine the pass to animate based on the current frame number
-        current_pass = 0
-        total_frames = 0
-        for i in range(len(sequence[0])):
-            if num < total_frames + len(sequence[0][i]):
-                current_pass = i
-                break
-            total_frames += len(sequence[0][i])
-
-        # Calculate the frame index within the current pass
-        frame_within_pass = num - total_frames
-
-        # Add new circles for the current pass and frame
-        if frame_within_pass < len(sequence[0][current_pass]):
-            x = sequence[0][current_pass][frame_within_pass]
-            y = sequence[1][current_pass][frame_within_pass]
-            circle = plt.Circle((x, y), 0.5, color=colors[current_pass], alpha=0.6)
+    # Flatten the hole sequence into a list of (hole, pass_index) tuples
+    flattened_hole_sequence = []
+    for pass_index, holes in enumerate(hole_sequence):
+        for hole in holes:
+            flattened_hole_sequence.append((hole, pass_index))
+    
+    # List to store all circle patches for cleanup
+    circles = []
+    
+    def update(frame):
+        """Animation update function called for each frame."""
+        if frame < len(flattened_hole_sequence):
+            hole, pass_index = flattened_hole_sequence[frame]
+            circle = plt.Circle((hole.x, hole.y), HOLE_DIAMETER / 2, color=colors[pass_index], alpha=FILL_OPACITY)
             ax.add_patch(circle)
-            patches[current_pass].append(circle)
-
-        return [circle for sublist in patches.values() for circle in sublist]
-
-    total_frames = sum(map(len, sequence[0]))  # Total frames needed to complete all passes
-    ani = animation.FuncAnimation(fig, update, frames = total_frames, interval = animation_interval_ms, repeat = False)
+            circles.append(circle)
+        
+        return circles
+    
+    # Create and run the animation
+    total_frames = len(flattened_hole_sequence)
+    ani = animation.FuncAnimation(
+        fig, 
+        update, 
+        frames=total_frames, 
+        interval=animation_interval_ms, 
+        repeat=False
+    )
     plt.show()

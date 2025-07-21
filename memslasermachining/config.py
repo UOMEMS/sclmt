@@ -14,3 +14,4 @@ DEFAULT_TARGET_FINAL_HOLE_SPACING: float = HOLE_DIAMETER / 2
 ### Visualization ###
 
 PLOT_MARGIN_FACTOR: float = 0.2
+FILL_OPACITY: float = 0.6
