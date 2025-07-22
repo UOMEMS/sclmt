@@ -13,7 +13,7 @@ class MembraneCornerLayoutAligner(LayoutAligner):
 
     Arguments:
     - `nominal_membrane_side_length`: membrane side length assumed in the layout design
-    - `dx`, `dy`: measured displacement components from the bottom-left to the bottom-right corner of the membrane
+    - `bottom_left_to_right_x`, `bottom_left_to_right_y`: measured displacement components from the bottom-left to the bottom-right corner of the membrane
     - All arguments must use the same units
 
     Transformations:
@@ -22,15 +22,15 @@ class MembraneCornerLayoutAligner(LayoutAligner):
     - Translation shifts the layout origin (0,0) from the center to the membrane's bottom-right corner, where the stage must be zeroed
     """
 
-    def __init__(self, nominal_membrane_side_length: float, dx: float, dy: float) -> None:
+    def __init__(self, nominal_membrane_side_length: float, bottom_left_to_right_x: float, bottom_left_to_right_y: float) -> None:
         super().__init__()
         
         # Scaling
-        actual_membrane_side_length = np.sqrt(dx ** 2 + dy ** 2)
+        actual_membrane_side_length = np.sqrt(bottom_left_to_right_x ** 2 + bottom_left_to_right_y ** 2)
         scaling_factor = actual_membrane_side_length / nominal_membrane_side_length
         
         # Rotation
-        rotation_angle = np.arctan2(dy, dx)
+        rotation_angle = np.arctan2(bottom_left_to_right_y, bottom_left_to_right_x)
         if rotation_angle < -np.pi / 4 or rotation_angle > np.pi / 4:
             raise ValueError("Wrong corners chosen, membrane angle is not within [-45, 45] degrees")
         
@@ -50,7 +50,7 @@ class MembraneCornerLayoutAligner(LayoutAligner):
 
         # Log inputs
         self.log(f"Nominal membrane side length: {nominal_membrane_side_length}")
-        self.log(f"Displacement from bottom-left to bottom-right corner of membrane: dx = {dx}, dy = {dy}")
+        self.log(f"Displacement from bottom-left to bottom-right corner of membrane: dx = {bottom_left_to_right_x}, dy = {bottom_left_to_right_y}")
 
     def get_transformations(self) -> list[LayoutAligner.Transformation]:
         return self.transformations

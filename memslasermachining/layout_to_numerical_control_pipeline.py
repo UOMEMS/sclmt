@@ -319,12 +319,14 @@ class LayoutToNumericalControlPipeline(Loggable):
         return self
 
     @validate_state('layout_hole_sequence')
-    def view_hole_sequence(self, individually: bool = False, animation_interval_ms: int = 200) -> Self:
+    def view_hole_sequence(self, per_polygon: bool = False, animation_interval_ms: int = 200) -> Self:
         """
-        Animates the hole sequence for the loaded layout. Each color represents a different pass.
-        If argument `individually` is True, each polygon's hole sequence is shown individually.
+        Animates the hole sequence for the loaded layout. Colors represent different passes.
+
+        If argument `per_polygon` is True, polygon hole sequences are shown individually.
+        Otherwise, the layout hole sequence is shown.
         """
-        if individually:
+        if per_polygon:
             for (vertices, generator) in zip(self.polygons_as_vertices, self.polygon_hole_sequence_generators):
                 animate_hole_sequence(vertices, generator.get_polygon_hole_sequence(), animation_interval_ms)
         else:
