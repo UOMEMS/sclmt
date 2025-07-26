@@ -12,9 +12,7 @@
 [Configuring Stage and Laser](#configuring-stage-and-laser) |
 [Authors and Contributors](#authors-and-contributors)
 
-SCLMT is a Python package used for rapid prototyping of nanomechanical resonators via femtosecond laser ablation of pre-stressed silicon nitride membranes. It generates numerical control (NC) code for laser micromachining directly from layout designs.
-
-A conceptual overview of the toolset is provided in our paper: [Laser micromachining of arbitrarily complex and overhang-free SiN nanomechanical resonators](https://arxiv.org/abs/2507.18599).
+SCLMT is a Python package used for rapid prototyping of nanomechanical resonators via femtosecond laser ablation of pre-stressed silicon nitride membranes. It generates numerical control (NC) code for laser micromachining directly from layout designs. A conceptual overview of the toolset is provided in our paper: [Laser micromachining of arbitrarily complex and overhang-free SiN nanomechanical resonators](https://arxiv.org/abs/2507.18599).
 
 <p align="center">
   <img src="assets/sclmt.svg"/>
