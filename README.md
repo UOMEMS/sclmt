@@ -1,6 +1,6 @@
 # Stress-Controlled Laser Micromachining Toolset (SCLMT)
 
-[![arXiv](https://img.shields.io/badge/arXiv-xxx-b31b1b.svg?style=for-the-badge)](https://arxiv.org/abs/xxx)
+[![arXiv](https://img.shields.io/badge/arXiv-2507.18599-b31b1b.svg?style=for-the-badge)](https://arxiv.org/abs/2507.18599)
 [![Python](https://img.shields.io/badge/python-3.11-blue?style=for-the-badge)](https://www.python.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -14,7 +14,7 @@
 
 SCLMT is a Python package used for rapid prototyping of nanomechanical resonators via femtosecond laser ablation of pre-stressed silicon nitride membranes. It generates numerical control (NC) code for laser micromachining directly from layout designs.
 
-A conceptual overview of the toolset is provided in our [arXiv paper](https://arxiv.org/abs/XXXX.XXXXX).
+A conceptual overview of the toolset is provided in our paper: [Laser micromachining of arbitrarily complex and overhang-free SiN nanomechanical resonators](https://arxiv.org/abs/2507.18599).
 
 <p align="center">
   <img src="assets/sclmt.svg"/>
